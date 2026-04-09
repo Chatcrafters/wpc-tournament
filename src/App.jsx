@@ -73,6 +73,7 @@ export default function App() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [userId, setUserId] = useState(null);
+  const [profileId, setProfileId] = useState(null);
   const [profile, setProfile] = useState({ firstName: "", lastName: "", email: "", city: "", duprId: "", dob: "" });
   const [duprData, setDuprData] = useState(null);
   const [duprLoading, setDuprLoading] = useState(false);
@@ -108,8 +109,9 @@ export default function App() {
 
   // ── Load profile from Supabase ──
   const loadProfile = async (uid) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
+    const { data } = await supabase.from("profiles").select("*").eq("user_id", uid).single();
     if (data) {
+      setProfileId(data.id);
       setProfile({
         firstName: data.first_name || "",
         lastName: data.last_name || "",
@@ -121,8 +123,8 @@ export default function App() {
       if (data.dupr_rating) {
         setDuprData({ rating: parseFloat(data.dupr_rating), verified: data.dupr_verified });
       }
-      await loadRegistrations(uid);
-      await loadIncomingRequests(uid);
+      await loadRegistrations(data.id);
+      await loadIncomingRequests(data.id);
       setScreen("dashboard");
     } else {
       setScreen("profile");
@@ -220,7 +222,11 @@ export default function App() {
     setOtpLoading(true);
     setAuthError("");
     const cleanPhone = phone.replace(/[\s\-\(\)]/g, "");
-    const { error } = await supabase.auth.signInWithOtp({ phone: cleanPhone });
+    console.log("[OTP] Sending to:", cleanPhone);
+    console.log("[OTP] Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
+    const { data, error } = await supabase.auth.signInWithOtp({ phone: cleanPhone });
+    console.log("[OTP] Response data:", data);
+    console.log("[OTP] Response error:", error);
     setOtpLoading(false);
     if (error) {
       setAuthError(error.message);
@@ -248,27 +254,49 @@ export default function App() {
   const saveProfile = async () => {
     if (!profile.firstName || !profile.lastName || !profile.dob || playerAge < 19) return;
     const cleanPhone = phone.replace(/[\s\-\(\)]/g, "");
-    const { error } = await supabase.from("profiles").upsert({
-      id: userId,
-      phone: cleanPhone,
-      first_name: profile.firstName,
-      last_name: profile.lastName,
-      email: profile.email || null,
-      city: profile.city || null,
-      dob: profile.dob,
-      dupr_id: profile.duprId || null,
-      dupr_rating: duprData?.rating || null,
-      dupr_verified: !!duprData?.verified,
-    });
+    // Check if profile already exists
+    const { data: existing } = await supabase.from("profiles").select("id").eq("user_id", userId).single();
+    let error;
+    if (existing) {
+      ({ error } = await supabase.from("profiles").update({
+        phone: cleanPhone,
+        first_name: profile.firstName,
+        last_name: profile.lastName,
+        email: profile.email || null,
+        city: profile.city || null,
+        dob: profile.dob,
+        dupr_id: profile.duprId || null,
+        dupr_rating: duprData?.rating || null,
+        dupr_verified: !!duprData?.verified,
+      }).eq("user_id", userId));
+    } else {
+      const { data: newProfile, error: insertError } = await supabase.from("profiles").insert({
+        user_id: userId,
+        phone: cleanPhone,
+        first_name: profile.firstName,
+        last_name: profile.lastName,
+        email: profile.email || null,
+        city: profile.city || null,
+        dob: profile.dob,
+        dupr_id: profile.duprId || null,
+        dupr_rating: duprData?.rating || null,
+        dupr_verified: !!duprData?.verified,
+      }).select().single();
+      error = insertError;
+      if (newProfile) setProfileId(newProfile.id);
+    }
+    console.log("[Profile] Save error:", error);
     if (!error) {
       setScreen("dashboard");
+    } else {
+      setAuthError("Profil konnte nicht gespeichert werden: " + error.message);
     }
   };
 
   // ── Save registration to Supabase ──
   const saveRegistration = async (regData) => {
     const { data, error } = await supabase.from("registrations").insert({
-      player_id: userId,
+      player_id: profileId,
       discipline: regData.discipline,
       level: regData.level,
       age_group: regData.age,
@@ -284,7 +312,7 @@ export default function App() {
   // ── Send partner request to Supabase ──
   const sendPartnerRequest = async (toPlayerId, boardEntry) => {
     await supabase.from("partner_requests").insert({
-      from_player_id: userId,
+      from_player_id: profileId,
       to_player_id: toPlayerId,
       discipline: boardEntry.discipline,
       level: boardEntry.level,
