@@ -1,743 +1,1006 @@
-import { useState, useEffect } from 'react'
+import { useState } from "react";
 
-const STORAGE_KEY = 'wpc-tournament-data'
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const TOURNAMENT = { name: "Vienna Pickleball Open", date: "14.–16. Juni 2025", location: "Sportpark Liesing, Wien", deadline: "1. Juni 2025", year: 2025, appUrl: "https://5kzsnz.csb.app" };
+const LEVELS = [
+  { value: "3.5", color: "#4ADE80", desc: "Fortgeschrittene Anfänger" },
+  { value: "4.5", color: "#FACC15", desc: "Mittleres Niveau" },
+  { value: "5.0", color: "#F97316", desc: "Profi / Turnierspieler" },
+];
+const AGE_GROUPS = [
+  { key: "19+", label: "Open" },
+  { key: "50+", label: "Senior" },
+  { key: "60+", label: "Masters" },
+];
+const DISCIPLINES = [
+  { key: "singles", label: "Einzel", icon: "👤", hasPartner: false },
+  { key: "doubles", label: "Doppel", icon: "👥", hasPartner: true },
+  { key: "mixed", label: "Mixed", icon: "🤝", hasPartner: true },
+];
+const MOCK_DUPR = {
+  "12345": { name: "Max Mustermann", rating: 4.32, verified: true },
+  "67890": { name: "Anna Schmidt", rating: 3.71, verified: true },
+  "11111": { name: "Klaus Weber", rating: 5.12, verified: true },
+  "99999": { name: "Julia Bauer", rating: 4.89, verified: true },
+};
+const MOCK_BOARD = [
+  { id: 1, name: "Thomas W.", city: "Wien", level: "4.5", age: "50+", discipline: "doubles", phone: "+43 664 111 222", duprRating: 4.41, duprVerified: true },
+  { id: 2, name: "Sarah K.", city: "Graz", level: "3.5", age: "19+", discipline: "mixed", phone: "+43 664 333 444", duprRating: 3.55, duprVerified: true },
+  { id: 3, name: "Peter M.", city: "Linz", level: "5.0", age: "60+", discipline: "doubles", phone: "+43 664 555 666", duprRating: null, duprVerified: false },
+  { id: 4, name: "Julia B.", city: "Wien", level: "4.5", age: "19+", discipline: "mixed", phone: "+43 664 777 888", duprRating: 4.89, duprVerified: true },
+  { id: 5, name: "Hans R.", city: "Salzburg", level: "3.5", age: "50+", discipline: "doubles", phone: "+43 664 999 000", duprRating: 3.22, duprVerified: true },
+];
+const MOCK_ADMIN = [
+  { id: 1, name: "Max Mustermann", phone: "+43 664 100 200", discipline: "singles", level: "4.5", age: "19+", paid: true, paidForPartner: false, partnerName: null, partnerPaid: null, duprRating: 4.32 },
+  { id: 2, name: "Anna Schmidt", phone: "+43 664 300 400", discipline: "doubles", level: "3.5", age: "50+", paid: true, paidForPartner: false, partnerName: "Lisa H.", partnerPaid: false, duprRating: 3.71 },
+  { id: 3, name: "Klaus Weber", phone: "+43 664 500 600", discipline: "mixed", level: "5.0", age: "60+", paid: true, paidForPartner: true, partnerName: "Maria L.", partnerPaid: true, duprRating: 5.12 },
+  { id: 4, name: "Sophie M.", phone: "+43 664 700 800", discipline: "doubles", level: "4.5", age: "19+", paid: false, paidForPartner: false, partnerName: "Emma R.", partnerPaid: false, duprRating: null },
+  { id: 5, name: "Robert K.", phone: "+43 664 900 100", discipline: "singles", level: "3.5", age: "50+", paid: true, paidForPartner: false, partnerName: null, partnerPaid: null, duprRating: 3.88 },
+  { id: 6, name: "Petra N.", phone: "+43 664 200 300", discipline: "mixed", level: "4.5", age: "50+", paid: true, paidForPartner: false, partnerName: "Franz D.", partnerPaid: false, duprRating: 4.55 },
+];
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch { return null }
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const lc = (l) => LEVELS.find(c => c.value === l)?.color || "#fff";
+const suggestLevel = (r) => !r ? null : r < 4.0 ? "3.5" : r < 5.0 ? "4.5" : "5.0";
+const calcAgeInYear = (dob, year) => { if (!dob) return null; return year - new Date(dob).getFullYear(); };
+
+// ─── STYLES ───────────────────────────────────────────────────────────────────
+const ST = {
+  wrap: { maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#0A0E1A", fontFamily: "system-ui,sans-serif", color: "#F0F4FF" },
+  page: { minHeight: "100vh", display: "flex", flexDirection: "column", padding: "0 20px 40px" },
+  btn: { background: "linear-gradient(135deg,#F59E0B,#F97316)", color: "#0A0E1A", border: "none", borderRadius: 16, padding: 16, fontSize: 16, fontWeight: 700, cursor: "pointer", width: "100%", boxShadow: "0 4px 20px rgba(245,158,11,0.3)" },
+  btnB: { background: "linear-gradient(135deg,#3B82F6,#2563EB)", color: "#fff", border: "none", borderRadius: 14, padding: "0 16px", fontSize: 15, fontWeight: 700, cursor: "pointer" },
+  btnG: { background: "linear-gradient(135deg,#22C55E,#16A34A)", color: "#fff", border: "none", borderRadius: 14, padding: 14, fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" },
+  btnR: { background: "rgba(239,68,68,0.1)", color: "#EF4444", border: "1.5px solid rgba(239,68,68,0.3)", borderRadius: 14, padding: 14, fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%" },
+  ghost: { background: "transparent", color: "#F59E0B", border: "2px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: 14, fontSize: 15, fontWeight: 600, cursor: "pointer", width: "100%" },
+  inp: { background: "#141A2E", border: "1.5px solid #1E2845", borderRadius: 14, padding: "16px 18px", fontSize: 17, color: "#F0F4FF", width: "100%", outline: "none", boxSizing: "border-box" },
+  card: { background: "#141A2E", borderRadius: 20, padding: 20, border: "1.5px solid #1E2845", marginBottom: 12 },
+  hdr: { padding: "52px 0 20px", display: "flex", alignItems: "center", gap: 12 },
+  back: { background: "#141A2E", border: "none", borderRadius: 12, width: 40, height: 40, cursor: "pointer", color: "#F0F4FF", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  lbl: { fontSize: 11, fontWeight: 700, color: "#6B7BA4", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, display: "block" },
+  tag: (col) => ({ background: col + "22", color: col, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, display: "inline-block" }),
+  row: (col) => ({ background: "#141A2E", border: "2px solid " + (col || "#1E2845"), borderRadius: 18, padding: 18, cursor: "pointer", display: "flex", alignItems: "center", gap: 14, color: "#F0F4FF", width: "100%", marginBottom: 12, textAlign: "left" }),
+};
+
+// ─── COMPONENTS ───────────────────────────────────────────────────────────────
+function DuprBadge({ rating, verified, size }) {
+  const sm = size === "small";
+  const p = sm ? "3px 8px" : "5px 10px";
+  const fs = sm ? 11 : 13;
+  if (!rating) return <span style={{ background: "#1E2845", color: "#6B7BA4", borderRadius: 8, padding: p, fontSize: fs, fontWeight: 700 }}>Self-Rating</span>;
+  return <span style={{ background: verified ? "rgba(59,130,246,0.2)" : "#1E2845", color: verified ? "#60A5FA" : "#6B7BA4", borderRadius: 8, padding: p, fontSize: fs, fontWeight: 700 }}>{verified ? "⚡ " : ""}DUPR {rating.toFixed(2)}</span>;
 }
 
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-}
-
-const initialState = {
-  players: [],
-  matches: [],
-  tournamentStarted: false,
-  tournamentName: 'WPC Pickleball Tournament',
-}
-
-function generateBracket(players) {
-  const shuffled = [...players].sort(() => Math.random() - 0.5)
-  const matches = []
-  for (let i = 0; i < shuffled.length; i += 2) {
-    if (i + 1 < shuffled.length) {
-      matches.push({
-        id: crypto.randomUUID(),
-        round: 1,
-        player1: shuffled[i],
-        player2: shuffled[i + 1],
-        score1: 0,
-        score2: 0,
-        completed: false,
-        winner: null,
-      })
-    } else {
-      matches.push({
-        id: crypto.randomUUID(),
-        round: 1,
-        player1: shuffled[i],
-        player2: null,
-        score1: 0,
-        score2: 0,
-        completed: true,
-        winner: shuffled[i].id,
-      })
-    }
-  }
-  return matches
-}
-
-function generateNextRound(matches, currentRound) {
-  const winners = matches
-    .filter(m => m.round === currentRound && m.completed)
-    .map(m => {
-      if (m.player2 === null) return m.player1
-      return m.winner === m.player1.id ? m.player1 : m.player2
-    })
-
-  if (winners.length <= 1) return []
-
-  const next = []
-  for (let i = 0; i < winners.length; i += 2) {
-    if (i + 1 < winners.length) {
-      next.push({
-        id: crypto.randomUUID(),
-        round: currentRound + 1,
-        player1: winners[i],
-        player2: winners[i + 1],
-        score1: 0,
-        score2: 0,
-        completed: false,
-        winner: null,
-      })
-    } else {
-      next.push({
-        id: crypto.randomUUID(),
-        round: currentRound + 1,
-        player1: winners[i],
-        player2: null,
-        score1: 0,
-        score2: 0,
-        completed: true,
-        winner: winners[i].id,
-      })
-    }
-  }
-  return next
-}
-
-function PlayerForm({ onAdd }) {
-  const [name, setName] = useState('')
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed) return
-    onAdd({ id: crypto.randomUUID(), name: trimmed })
-    setName('')
-  }
-
+function PayOption({ icon, title, desc, price, selected, onClick }) {
   return (
-    <form onSubmit={handleSubmit} style={styles.form}>
-      <input
-        type="text"
-        value={name}
-        onChange={e => setName(e.target.value)}
-        placeholder="Spieler Name eingeben..."
-        style={styles.input}
-      />
-      <button type="submit" style={styles.btnPrimary}>+ Hinzufügen</button>
-    </form>
-  )
+    <button onClick={onClick} style={{ background: selected ? "#0D2137" : "#141A2E", border: "2px solid " + (selected ? "#F59E0B" : "#1E2845"), borderRadius: 18, padding: 18, cursor: "pointer", display: "flex", alignItems: "center", gap: 14, color: "#F0F4FF", width: "100%", marginBottom: 10, textAlign: "left" }}>
+      <span style={{ fontSize: 28 }}>{icon}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 700 }}>{title}</div>
+        <div style={{ fontSize: 12, color: "#6B7BA4", marginTop: 2 }}>{desc}</div>
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: selected ? "#F59E0B" : "#6B7BA4" }}>{price}</div>
+    </button>
+  );
 }
 
-function PlayerList({ players, onRemove, disabled }) {
-  if (players.length === 0) {
-    return <p style={styles.muted}>Noch keine Spieler hinzugefügt.</p>
-  }
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+export default function App() {
+  const [screen, setScreen] = useState("splash");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [profile, setProfile] = useState({ firstName: "", lastName: "", email: "", city: "", duprId: "", dob: "" });
+  const [duprData, setDuprData] = useState(null);
+  const [duprLoading, setDuprLoading] = useState(false);
+  const [registrations, setRegistrations] = useState([]);
+  const [reg, setReg] = useState({ discipline: null, level: null, age: null });
+  const [step, setStep] = useState(0);
+  const [partnerMode, setPartnerMode] = useState(null);
+  const [partnerPhone, setPartnerPhone] = useState("");
+  const [payOption, setPayOption] = useState(null);
+  const [adminRegs, setAdminRegs] = useState(MOCK_ADMIN);
+  const [board, setBoard] = useState(MOCK_BOARD);
+  const [fLevel, setFLevel] = useState(null);
+  const [fAge, setFAge] = useState(null);
+  const [levelWarn, setLevelWarn] = useState(false);
+  const [sentRequests, setSentRequests] = useState([]);
+  const [requestMsg, setRequestMsg] = useState("");
+  const [requestingId, setRequestingId] = useState(null);
+  const [incomingRequests, setIncomingRequests] = useState([
+    { id: 101, fromName: "Thomas W.", fromCity: "Wien", fromPhone: "+43 664 111 222", fromDupr: 4.41, fromVerified: true, level: "4.5", age: "50+", discipline: "doubles", message: "Hallo! Würde gern mit dir spielen. Bin flexibel was Termine betrifft 🏓", timestamp: "vor 2h", status: "pending" },
+    { id: 102, fromName: "Julia B.", fromCity: "Wien", fromPhone: "+43 664 777 888", fromDupr: 4.89, fromVerified: true, level: "4.5", age: "19+", discipline: "mixed", message: "Hi! Suche noch einen Mixed-Partner für das Turnier. Interesse?", timestamp: "vor 5h", status: "pending" },
+  ]);
+  // Invite friend state
+  const [inviteMode, setInviteMode] = useState(null); // "general" | "category"
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteCategory, setInviteCategory] = useState({ discipline: null, level: null, age: null });
 
-  return (
-    <div style={styles.playerList}>
-      {players.map((p, i) => (
-        <div key={p.id} style={styles.playerCard}>
-          <span style={styles.playerIndex}>{i + 1}</span>
-          <span style={styles.playerName}>{p.name}</span>
-          {!disabled && (
-            <button onClick={() => onRemove(p.id)} style={styles.btnRemove}>✕</button>
-          )}
+  const needsPartner = (d) => d === "doubles" || d === "mixed";
+  const hasAnyPaid = registrations.some(r => r.paid);
+  const playerAge = calcAgeInYear(profile.dob, TOURNAMENT.year);
+  const suggested = suggestLevel(duprData?.rating);
+  const eligibleGroups = AGE_GROUPS.filter(ag => playerAge !== null && playerAge >= parseInt(ag.key));
+  const pendingCount = incomingRequests.filter(r => r.status === "pending").length;
+
+  const fetchDupr = (id) => {
+    setDuprLoading(true);
+    setTimeout(() => { setDuprData(MOCK_DUPR[id] || null); setDuprLoading(false); }, 1200);
+  };
+
+  const pendingPayable = registrations.filter(r => r.pending && !r.lookingForPartner);
+  const pendingSearch = registrations.filter(r => r.pending && r.lookingForPartner);
+  const currentIsSearch = partnerMode === "search";
+  const payableCount = pendingPayable.length + (!currentIsSearch ? 1 : 0);
+  const pricePerReg = payOption === "both" ? 70 : payOption === "partner" ? 0 : 35;
+  const totalToday = payableCount * pricePerReg;
+
+  const finish = () => {
+    const newReg = { ...reg, id: Date.now(), partnerPhone: partnerMode === "have" ? partnerPhone : null, lookingForPartner: partnerMode === "search", paid: payOption !== "partner" && partnerMode !== "search", paidForPartner: payOption === "both", payOption };
+    setRegistrations([...registrations, newReg]);
+    if (partnerMode === "search") {
+      setBoard([...board, { id: Date.now() + 1, name: profile.firstName + " " + profile.lastName, city: profile.city || "Wien", level: reg.level, age: reg.age, discipline: reg.discipline, phone, duprRating: duprData?.rating || null, duprVerified: !!duprData }]);
+    }
+    setScreen("success");
+  };
+
+  // WhatsApp URL builder
+  const getWhatsAppUrl = (toPhone, msg) => {
+    const clean = toPhone ? toPhone.replace(/[\s\-\(\)]/g, "").replace("+", "") : "";
+    return clean.length > 6
+      ? `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  };
+
+  const generalInviteMsg = (name) =>
+    `Hey${name ? " " + name : ""}! 👋 Ich spiele beim *${TOURNAMENT.name}* (${TOURNAMENT.date}, ${TOURNAMENT.location}) mit. Komm doch auch hin! 🏓\n\nHier anmelden: ${TOURNAMENT.appUrl}`;
+
+  const categoryInviteMsg = (name, cat) =>
+    `Hey${name ? " " + name : ""}! 👋 Ich spiele beim *${TOURNAMENT.name}* (${TOURNAMENT.date}) und würde gern mit dir spielen!\n\n${DISCIPLINES.find(d => d.key === cat.discipline)?.icon} ${DISCIPLINES.find(d => d.key === cat.discipline)?.label} · Level ${cat.level} · ${cat.age}\n\nMelde dich hier an: ${TOURNAMENT.appUrl}`;
+
+  // ── SPLASH ──────────────────────────────────────────────────────────────────
+  if (screen === "splash") return (
+    <div style={ST.wrap}>
+      <div style={{ ...ST.page, justifyContent: "center", alignItems: "center", gap: 28, background: "radial-gradient(ellipse at 50% 30%,#1A3A5C44 0%,transparent 70%)" }}>
+        <div style={{ width: 110, height: 110, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%,#FFED4A,#F59E0B)", boxShadow: "0 0 80px rgba(245,158,11,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56 }}>🏓</div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, lineHeight: 1.1 }}>WPC Software</div>
+          <div style={{ color: "#6B7BA4", marginTop: 8, fontSize: 15 }}>Pickleball Turnierverwaltung</div>
         </div>
-      ))}
-    </div>
-  )
-}
-
-function MatchCard({ match, onUpdateScore, onComplete }) {
-  if (!match.player2) {
-    return (
-      <div style={{ ...styles.matchCard, ...styles.matchBye }}>
-        <div style={styles.matchHeader}>Freilos</div>
-        <div style={styles.matchPlayers}>
-          <span style={styles.winnerName}>{match.player1.name}</span>
-          <span style={styles.byeLabel}>→ Weiter</span>
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+          <button style={ST.btn} onClick={() => setScreen("phone")}>Als Spieler anmelden</button>
+          <button style={ST.ghost} onClick={() => setScreen("admin")}>Organisatoren-Ansicht</button>
+          <div style={{ textAlign: "center", color: "#3A4A6A", fontSize: 13, marginTop: 4 }}>Keine App nötig · Läuft im Browser</div>
         </div>
       </div>
-    )
-  }
-
-  return (
-    <div style={{
-      ...styles.matchCard,
-      ...(match.completed ? styles.matchCompleted : {})
-    }}>
-      <div style={styles.matchPlayers}>
-        <div style={{
-          ...styles.matchPlayer,
-          ...(match.winner === match.player1.id ? styles.matchWinner : {})
-        }}>
-          <span>{match.player1.name}</span>
-          {!match.completed ? (
-            <div style={styles.scoreControls}>
-              <button
-                style={styles.btnScore}
-                onClick={() => onUpdateScore(match.id, 'score1', Math.max(0, match.score1 - 1))}
-              >−</button>
-              <span style={styles.scoreValue}>{match.score1}</span>
-              <button
-                style={styles.btnScore}
-                onClick={() => onUpdateScore(match.id, 'score1', match.score1 + 1)}
-              >+</button>
-            </div>
-          ) : (
-            <span style={styles.scoreFinal}>{match.score1}</span>
-          )}
-        </div>
-
-        <span style={styles.vs}>VS</span>
-
-        <div style={{
-          ...styles.matchPlayer,
-          ...(match.winner === match.player2.id ? styles.matchWinner : {})
-        }}>
-          <span>{match.player2.name}</span>
-          {!match.completed ? (
-            <div style={styles.scoreControls}>
-              <button
-                style={styles.btnScore}
-                onClick={() => onUpdateScore(match.id, 'score2', Math.max(0, match.score2 - 1))}
-              >−</button>
-              <span style={styles.scoreValue}>{match.score2}</span>
-              <button
-                style={styles.btnScore}
-                onClick={() => onUpdateScore(match.id, 'score2', match.score2 + 1)}
-              >+</button>
-            </div>
-          ) : (
-            <span style={styles.scoreFinal}>{match.score2}</span>
-          )}
-        </div>
-      </div>
-
-      {!match.completed && (
-        <button
-          style={styles.btnFinish}
-          onClick={() => onComplete(match.id)}
-          disabled={match.score1 === match.score2}
-        >
-          Spiel beenden
-        </button>
-      )}
-      {match.completed && (
-        <div style={styles.winnerBadge}>
-          Gewinner: {match.winner === match.player1.id ? match.player1.name : match.player2.name}
-        </div>
-      )}
     </div>
-  )
-}
+  );
 
-function App() {
-  const [state, setState] = useState(() => loadData() || initialState)
-  const [tab, setTab] = useState('players')
-
-  useEffect(() => { saveData(state) }, [state])
-
-  const addPlayer = (player) => {
-    setState(s => ({ ...s, players: [...s.players, player] }))
-  }
-
-  const removePlayer = (id) => {
-    setState(s => ({ ...s, players: s.players.filter(p => p.id !== id) }))
-  }
-
-  const startTournament = () => {
-    if (state.players.length < 2) return
-    const matches = generateBracket(state.players)
-    setState(s => ({ ...s, matches, tournamentStarted: true }))
-    setTab('bracket')
-  }
-
-  const resetTournament = () => {
-    setState(s => ({ ...s, matches: [], tournamentStarted: false }))
-  }
-
-  const updateScore = (matchId, field, value) => {
-    setState(s => ({
-      ...s,
-      matches: s.matches.map(m =>
-        m.id === matchId ? { ...m, [field]: value } : m
-      ),
-    }))
-  }
-
-  const completeMatch = (matchId) => {
-    setState(s => {
-      const newMatches = s.matches.map(m => {
-        if (m.id !== matchId) return m
-        const winner = m.score1 > m.score2 ? m.player1.id : m.player2.id
-        return { ...m, completed: true, winner }
-      })
-
-      const maxRound = Math.max(...newMatches.map(m => m.round))
-      const currentRoundMatches = newMatches.filter(m => m.round === maxRound)
-      const allComplete = currentRoundMatches.every(m => m.completed)
-
-      if (allComplete && currentRoundMatches.length > 1) {
-        const nextRound = generateNextRound(newMatches, maxRound)
-        return { ...s, matches: [...newMatches, ...nextRound] }
-      }
-
-      return { ...s, matches: newMatches }
-    })
-  }
-
-  const maxRound = state.matches.length > 0
-    ? Math.max(...state.matches.map(m => m.round))
-    : 0
-
-  const finalMatch = state.matches.find(m => m.round === maxRound && m.completed && m.player2 !== null)
-  const roundMatches = state.matches.filter(m => m.round === maxRound)
-  const isTournamentOver = finalMatch && roundMatches.length === 1
-
-  const champion = isTournamentOver
-    ? (finalMatch.winner === finalMatch.player1.id ? finalMatch.player1 : finalMatch.player2)
-    : null
-
-  const rounds = []
-  for (let r = 1; r <= maxRound; r++) {
-    rounds.push({ round: r, matches: state.matches.filter(m => m.round === r) })
-  }
-
-  const roundLabel = (r, total) => {
-    if (total === r && total > 1) return 'Finale'
-    if (total === r + 1 && total > 2) return 'Halbfinale'
-    return `Runde ${r}`
-  }
-
-  return (
-    <div style={styles.app}>
-      <header style={styles.header}>
-        <h1 style={styles.title}>{state.tournamentName}</h1>
-        <p style={styles.subtitle}>Pickleball Turnierverwaltung</p>
-      </header>
-
-      <nav style={styles.nav}>
-        <button
-          style={tab === 'players' ? styles.tabActive : styles.tab}
-          onClick={() => setTab('players')}
-        >
-          Spieler ({state.players.length})
-        </button>
-        <button
-          style={tab === 'bracket' ? styles.tabActive : styles.tab}
-          onClick={() => setTab('bracket')}
-        >
-          Turnier-Bracket
-        </button>
-      </nav>
-
-      <main style={styles.main}>
-        {tab === 'players' && (
-          <section>
-            <div style={styles.sectionHeader}>
-              <h2 style={styles.h2}>Spieler verwalten</h2>
-              {state.players.length >= 2 && !state.tournamentStarted && (
-                <button style={styles.btnStart} onClick={startTournament}>
-                  Turnier starten
-                </button>
-              )}
-              {state.tournamentStarted && (
-                <button style={styles.btnDanger} onClick={resetTournament}>
-                  Turnier zurücksetzen
-                </button>
-              )}
-            </div>
-            {!state.tournamentStarted && <PlayerForm onAdd={addPlayer} />}
-            <PlayerList
-              players={state.players}
-              onRemove={removePlayer}
-              disabled={state.tournamentStarted}
-            />
-          </section>
+  // ── PHONE ───────────────────────────────────────────────────────────────────
+  if (screen === "phone") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={ST.hdr}>
+        <button style={ST.back} onClick={() => setScreen("splash")}>←</button>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>Login</span>
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}>Deine<br />Handynummer 📱</div>
+        <div style={{ color: "#6B7BA4", fontSize: 14, lineHeight: 1.6 }}>Deine Nummer ist dein Login. Du bekommst einen Code per WhatsApp.</div>
+        <div>
+          <label style={ST.lbl}>Telefonnummer</label>
+          <input style={ST.inp} type="tel" placeholder="+43 664 123 456 7" value={phone} onChange={e => setPhone(e.target.value)} />
+        </div>
+        {otpSent && (
+          <div>
+            <label style={ST.lbl}>Code aus WhatsApp</label>
+            <input style={{ ...ST.inp, letterSpacing: 8, fontSize: 22, textAlign: "center" }} type="text" placeholder="· · · · · ·" maxLength={6} value={otp} onChange={e => setOtp(e.target.value)} />
+            <div style={{ fontSize: 12, color: "#6B7BA4", marginTop: 8, textAlign: "center" }}>Code gesendet an {phone}</div>
+          </div>
         )}
+        {!otpSent && <div style={{ background: "#0D1F33", borderRadius: 14, padding: 16, display: "flex", gap: 12 }}><span style={{ fontSize: 20 }}>💬</span><div style={{ fontSize: 13, color: "#6B7BA4", lineHeight: 1.5 }}>6-stelliger Code per WhatsApp oder SMS.</div></div>}
+      </div>
+      <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+        {!otpSent
+          ? <button style={{ ...ST.btn, opacity: phone.length < 8 ? 0.4 : 1 }} onClick={() => phone.length >= 8 && setOtpSent(true)}>Code senden →</button>
+          : <button style={{ ...ST.btn, opacity: otp.length < 4 ? 0.4 : 1 }} onClick={() => otp.length >= 4 && setScreen("profile")}>Bestätigen →</button>}
+        {otpSent && <button style={ST.ghost} onClick={() => setOtpSent(false)}>Andere Nummer</button>}
+      </div>
+    </div></div>
+  );
 
-        {tab === 'bracket' && (
-          <section>
-            {!state.tournamentStarted ? (
-              <div style={styles.emptyState}>
-                <p style={styles.emptyIcon}>🏓</p>
-                <p style={styles.muted}>
-                  Füge mindestens 2 Spieler hinzu und starte das Turnier.
-                </p>
-              </div>
-            ) : (
-              <>
-                {champion && (
-                  <div style={styles.champion}>
-                    <div style={styles.trophy}>🏆</div>
-                    <h2 style={styles.championTitle}>Turniersieger</h2>
-                    <p style={styles.championName}>{champion.name}</p>
-                  </div>
-                )}
+  // ── PROFILE ─────────────────────────────────────────────────────────────────
+  if (screen === "profile") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={ST.hdr}>
+        <button style={ST.back} onClick={() => setScreen(registrations.length > 0 ? "dashboard" : "phone")}>←</button>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>Profil</span>
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 24, fontWeight: 800 }}>Fast geschafft! 🎉</div>
+        <div style={{ color: "#6B7BA4", fontSize: 14 }}>Nur einmal ausfüllen – gilt für alle Turniere.</div>
+        {[
+          { label: "Vorname", key: "firstName", ph: "Max" },
+          { label: "Nachname", key: "lastName", ph: "Mustermann" },
+          { label: "Stadt", key: "city", ph: "Wien" },
+          { label: "E-Mail (optional)", key: "email", ph: "max@beispiel.at", type: "email" },
+        ].map(f => (
+          <div key={f.key}>
+            <label style={ST.lbl}>{f.label}</label>
+            <input style={ST.inp} type={f.type || "text"} placeholder={f.ph} value={profile[f.key]} onChange={e => setProfile({ ...profile, [f.key]: e.target.value })} />
+          </div>
+        ))}
 
-                <div style={styles.bracketScroll}>
-                  <div style={styles.bracket}>
-                    {rounds.map(({ round, matches }) => (
-                      <div key={round} style={styles.roundColumn}>
-                        <h3 style={styles.roundTitle}>
-                          {roundLabel(round, maxRound)}
-                        </h3>
-                        <div style={styles.roundMatches}>
-                          {matches.map(match => (
-                            <MatchCard
-                              key={match.id}
-                              match={match}
-                              onUpdateScore={updateScore}
-                              onComplete={completeMatch}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+        {/* GEBURTSDATUM */}
+        <div>
+          <label style={ST.lbl}>Geburtsdatum *</label>
+          <input style={ST.inp} type="date" value={profile.dob || ""} max={new Date().toISOString().split("T")[0]} onChange={e => setProfile({ ...profile, dob: e.target.value })} />
+          {playerAge !== null && (
+            <div style={{ marginTop: 10, background: "#0D1F33", borderRadius: 12, padding: "14px 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 12, color: "#6B7BA4" }}>Alter im Turnierjahr {TOURNAMENT.year}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800 }}>{playerAge} Jahre</div>
+                  <div style={{ fontSize: 11, color: "#6B7BA4", marginTop: 2 }}>Maßgeblich ist das Turnierjahr,<br />nicht der genaue Tag</div>
                 </div>
-              </>
-            )}
-          </section>
+              </div>
+              <div style={ST.lbl}>Berechtigte Altersgruppen</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {AGE_GROUPS.map(ag => {
+                  const ok = playerAge >= parseInt(ag.key);
+                  return (
+                    <div key={ag.key} style={{ flex: 1, textAlign: "center", background: ok ? "rgba(74,222,128,0.15)" : "rgba(239,68,68,0.08)", color: ok ? "#4ADE80" : "#3A4A6A", borderRadius: 10, padding: "8px 0", fontSize: 13, fontWeight: 700, border: ok ? "1px solid rgba(74,222,128,0.3)" : "1px solid #1E2845" }}>
+                      <div>{ok ? "✓" : "✗"}</div>
+                      <div>{ag.key}</div>
+                      <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2 }}>{ok ? ag.label : "Nicht berechtigt"}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              {playerAge < 19 && <div style={{ marginTop: 10, background: "rgba(239,68,68,0.1)", borderRadius: 10, padding: "8px 12px", fontSize: 13, color: "#EF4444" }}>⚠️ Mindestalter 19 Jahre im Turnierjahr {TOURNAMENT.year}.</div>}
+            </div>
+          )}
+        </div>
+
+        {/* DUPR */}
+        <div style={{ ...ST.card, borderColor: "#2A4A6C", marginBottom: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 22 }}>⚡</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>DUPR Rating verbinden</div>
+              <div style={{ fontSize: 12, color: "#6B7BA4" }}>Empfohlen – Self-Rating als Fallback möglich</div>
+            </div>
+          </div>
+          <label style={ST.lbl}>DUPR Player ID</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input style={{ ...ST.inp, flex: 1 }} type="text" placeholder="z.B. 12345 oder 67890" value={profile.duprId} onChange={e => { setProfile({ ...profile, duprId: e.target.value }); setDuprData(null); }} />
+            <button style={{ ...ST.btnB, height: 54, borderRadius: 14, opacity: profile.duprId.length < 3 ? 0.4 : 1 }} onClick={() => profile.duprId.length >= 3 && fetchDupr(profile.duprId)}>
+              {duprLoading ? "..." : "Laden"}
+            </button>
+          </div>
+          {duprLoading && <div style={{ marginTop: 12, fontSize: 13, color: "#6B7BA4", textAlign: "center" }}>⏳ DUPR wird abgefragt...</div>}
+          {duprData && (
+            <div style={{ marginTop: 12, background: "rgba(59,130,246,0.1)", borderRadius: 12, padding: 14, border: "1.5px solid rgba(59,130,246,0.3)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>✅ {duprData.name}</div>
+                  <div style={{ fontSize: 12, color: "#6B7BA4", marginTop: 2 }}>Empfohlenes Level: <strong style={{ color: lc(suggested) }}>{suggested}</strong></div>
+                </div>
+                <DuprBadge rating={duprData.rating} verified={duprData.verified} />
+              </div>
+            </div>
+          )}
+          {profile.duprId && !duprData && !duprLoading && <div style={{ marginTop: 10, fontSize: 12, color: "#6B7BA4" }}>💡 Kein DUPR? Kein Problem – Level wird als Self-Rating markiert.</div>}
+        </div>
+      </div>
+      <div style={{ paddingTop: 20 }}>
+        <button style={{ ...ST.btn, opacity: (!profile.firstName || !profile.lastName || !profile.dob || (playerAge !== null && playerAge < 19)) ? 0.4 : 1 }}
+          onClick={() => profile.firstName && profile.lastName && profile.dob && playerAge >= 19 && setScreen("dashboard")}>
+          Profil speichern →
+        </button>
+        {!profile.dob && profile.firstName && profile.lastName && <div style={{ marginTop: 10, textAlign: "center", fontSize: 13, color: "#F59E0B" }}>Bitte Geburtsdatum eingeben.</div>}
+        {profile.dob && playerAge !== null && playerAge < 19 && <div style={{ marginTop: 10, textAlign: "center", fontSize: 13, color: "#EF4444" }}>⚠️ Im Turnierjahr {TOURNAMENT.year} wirst du {playerAge} – Mindestalter ist 19.</div>}
+      </div>
+    </div></div>
+  );
+
+  // ── DASHBOARD ───────────────────────────────────────────────────────────────
+  if (screen === "dashboard") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={{ ...ST.hdr, justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 13, color: "#6B7BA4" }}>Hallo,</div>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>{profile.firstName || "Spieler"} 👋</div>
+        </div>
+        <DuprBadge rating={duprData?.rating} verified={!!duprData} size="small" />
+      </div>
+
+      {/* Tournament Card */}
+      <div style={{ background: "linear-gradient(135deg,#0D2137,#1A3A5C)", borderRadius: 24, padding: 24, border: "1.5px solid #2A4A6C", marginBottom: 16, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", right: -10, top: -10, fontSize: 80, opacity: 0.07 }}>🏓</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Nächstes Turnier</div>
+        <div style={{ fontSize: 21, fontWeight: 800, marginBottom: 4 }}>{TOURNAMENT.name}</div>
+        <div style={{ fontSize: 14, color: "#8BA4C0", marginBottom: 2 }}>📅 {TOURNAMENT.date}</div>
+        <div style={{ fontSize: 14, color: "#8BA4C0", marginBottom: 14 }}>📍 {TOURNAMENT.location}</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ background: "rgba(245,158,11,0.15)", borderRadius: 10, padding: "6px 12px", fontSize: 12, color: "#F59E0B", fontWeight: 600 }}>Anmeldeschluss: {TOURNAMENT.deadline}</span>
+          <span style={{ background: "rgba(74,222,128,0.15)", borderRadius: 10, padding: "6px 12px", fontSize: 12, color: "#4ADE80", fontWeight: 600 }}>Plätze frei</span>
+        </div>
+      </div>
+
+      {/* Quick actions */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <button style={{ flex: 1, background: "#141A2E", border: "1.5px solid #1E2845", borderRadius: 16, padding: 14, cursor: "pointer", color: "#F0F4FF", fontSize: 13, fontWeight: 600 }}
+          onClick={() => { setFLevel(null); setFAge(null); setScreen("board"); }}>🔍 Partnerbörse</button>
+        <button style={{ flex: 1, background: "#141A2E", border: "1.5px solid #1E2845", borderRadius: 16, padding: 14, cursor: "pointer", color: "#F0F4FF", fontSize: 13, fontWeight: 600 }}
+          onClick={() => setScreen("profile")}>⚡ DUPR: {duprData ? duprData.rating.toFixed(2) : "—"}</button>
+      </div>
+
+      {/* FREUND EINLADEN Button */}
+      <button onClick={() => setScreen("invite")} style={{ width: "100%", background: "linear-gradient(135deg,#1A2A4C,#0D1F33)", border: "1.5px solid #2A4A6C", borderRadius: 18, padding: 16, cursor: "pointer", marginBottom: 16, display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
+        <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(59,130,246,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>👫</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#F0F4FF" }}>Freund zum Turnier einladen</div>
+          <div style={{ fontSize: 12, color: "#60A5FA", marginTop: 2 }}>Per WhatsApp · mit oder ohne Kategorie-Vorschlag</div>
+        </div>
+        <span style={{ color: "#60A5FA", fontSize: 18 }}>→</span>
+      </button>
+
+      {/* Incoming requests notification */}
+      {pendingCount > 0 && (
+        <button onClick={() => setScreen("requests")} style={{ width: "100%", background: "linear-gradient(135deg,#1A3A5C,#0D2137)", border: "2px solid #F59E0B", borderRadius: 18, padding: 16, cursor: "pointer", marginBottom: 16, display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
+          <div style={{ position: "relative" }}>
+            <span style={{ fontSize: 28 }}>📨</span>
+            <span style={{ position: "absolute", top: -4, right: -4, background: "#EF4444", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{pendingCount}</span>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#F0F4FF" }}>{pendingCount} neue Partneranfrage{pendingCount > 1 ? "n" : ""}!</div>
+            <div style={{ fontSize: 12, color: "#F59E0B", marginTop: 2 }}>Tippen um zu antworten →</div>
+          </div>
+          <span style={{ color: "#F59E0B", fontSize: 20 }}>→</span>
+        </button>
+      )}
+
+      {/* Registrations */}
+      <div style={ST.lbl}>Meine Anmeldungen</div>
+      {registrations.length === 0
+        ? <div style={{ ...ST.card, textAlign: "center", padding: 32, color: "#3A4A6A" }}><div style={{ fontSize: 36, marginBottom: 8 }}>🎯</div><div>Noch nicht angemeldet</div></div>
+        : registrations.map(r => {
+            const d = DISCIPLINES.find(x => x.key === r.discipline);
+            const col = lc(r.level);
+            return (
+              <div key={r.id} style={{ background: "#141A2E", borderRadius: 16, padding: "16px 18px", border: "1.5px solid " + col + "44", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 24 }}>{d?.icon}</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{d?.label} · {r.age}</div>
+                      <div style={{ fontSize: 12, marginTop: 2, color: r.paid ? "#4ADE80" : "#F59E0B" }}>
+                        {r.paid ? (r.paidForPartner ? "✅ Du hast für beide bezahlt" : "✅ Bezahlt") : "⏳ Zahlung nach Paarung"}
+                      </div>
+                    </div>
+                  </div>
+                  <span style={ST.tag(col)}>{r.level}</span>
+                </div>
+                {r.lookingForPartner && <div style={{ background: "#0D2A1A", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#4ADE80" }}>🔍 Auf Partnerbörse aktiv</div>}
+                {r.partnerPhone && <div style={{ background: "#0D1F33", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#6B7BA4" }}>👥 Partner: {r.partnerPhone} · <span style={{ color: r.paidForPartner ? "#4ADE80" : "#F59E0B" }}>{r.paidForPartner ? "✅ Du hast gezahlt" : "⏳ Partner zahlt noch"}</span></div>}
+              </div>
+            );
+          })
+      }
+      <div style={{ marginTop: 8 }}>
+        {registrations.length < 3
+          ? <button style={ST.btn} onClick={() => { setReg({ discipline: null, level: null, age: null }); setPartnerPhone(""); setPartnerMode(null); setPayOption(null); setStep(0); setLevelWarn(false); setScreen("register"); }}>+ Neue Kategorie anmelden</button>
+          : <div style={{ textAlign: "center", color: "#6B7BA4", fontSize: 13, padding: 16 }}>Maximum 3 Kategorien erreicht</div>}
+      </div>
+    </div></div>
+  );
+
+  // ── INVITE FRIEND ────────────────────────────────────────────────────────────
+  if (screen === "invite") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={ST.hdr}>
+        <button style={ST.back} onClick={() => setScreen("dashboard")}>←</button>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>Freund einladen 👫</span>
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>Wen möchtest du<br />einladen? 🏓</div>
+        <div style={{ color: "#6B7BA4", fontSize: 14, lineHeight: 1.6 }}>Die Einladung wird direkt per WhatsApp verschickt – mit Link zur Anmeldung.</div>
+
+        {/* Phone input */}
+        <div>
+          <label style={ST.lbl}>Handynummer (optional)</label>
+          <input style={ST.inp} type="tel" placeholder="+43 664 987 654 3" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} />
+          <div style={{ fontSize: 12, color: "#6B7BA4", marginTop: 6 }}>Leer lassen um nur den Link zu öffnen</div>
+        </div>
+
+        {/* Invite type */}
+        <div style={ST.lbl}>Art der Einladung</div>
+
+        {/* General invite */}
+        <button style={{ ...ST.row(inviteMode === "general" ? "#60A5FA55" : null) }} onClick={() => setInviteMode(inviteMode === "general" ? null : "general")}>
+          <span style={{ fontSize: 28 }}>🎉</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>Allgemeine Einladung</div>
+            <div style={{ fontSize: 13, color: "#6B7BA4", marginTop: 2 }}>Einfach zum Turnier einladen, ohne Kategorie</div>
+          </div>
+          {inviteMode === "general" && <span style={{ color: "#60A5FA" }}>✓</span>}
+        </button>
+
+        {/* Category invite */}
+        <button style={{ ...ST.row(inviteMode === "category" ? "#F59E0B55" : null) }} onClick={() => setInviteMode(inviteMode === "category" ? null : "category")}>
+          <span style={{ fontSize: 28 }}>🎯</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>Mit Kategorie-Vorschlag</div>
+            <div style={{ fontSize: 13, color: "#6B7BA4", marginTop: 2 }}>Schlage gleich eine Disziplin + Level vor</div>
+          </div>
+          {inviteMode === "category" && <span style={{ color: "#F59E0B" }}>✓</span>}
+        </button>
+
+        {/* Category selector */}
+        {inviteMode === "category" && (
+          <div style={{ ...ST.card, borderColor: "#F59E0B44" }}>
+            <div style={ST.lbl}>Disziplin</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+              {DISCIPLINES.map(d => (
+                <button key={d.key} onClick={() => setInviteCategory({ ...inviteCategory, discipline: d.key })}
+                  style={{ padding: "8px 14px", borderRadius: 50, border: "2px solid " + (inviteCategory.discipline === d.key ? "#F59E0B" : "#1E2845"), background: inviteCategory.discipline === d.key ? "rgba(245,158,11,0.15)" : "transparent", color: inviteCategory.discipline === d.key ? "#F59E0B" : "#6B7BA4", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  {d.icon} {d.label}
+                </button>
+              ))}
+            </div>
+            <div style={ST.lbl}>Level</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              {LEVELS.map(l => (
+                <button key={l.value} onClick={() => setInviteCategory({ ...inviteCategory, level: l.value })}
+                  style={{ flex: 1, padding: "8px 0", borderRadius: 12, border: "2px solid " + (inviteCategory.level === l.value ? l.color : "#1E2845"), background: inviteCategory.level === l.value ? l.color + "22" : "transparent", color: inviteCategory.level === l.value ? l.color : "#6B7BA4", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                  {l.value}
+                </button>
+              ))}
+            </div>
+            <div style={ST.lbl}>Altersgruppe</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {AGE_GROUPS.map(ag => (
+                <button key={ag.key} onClick={() => setInviteCategory({ ...inviteCategory, age: ag.key })}
+                  style={{ flex: 1, padding: "8px 0", borderRadius: 12, border: "2px solid " + (inviteCategory.age === ag.key ? "#F59E0B" : "#1E2845"), background: inviteCategory.age === ag.key ? "rgba(245,158,11,0.15)" : "transparent", color: inviteCategory.age === ag.key ? "#F59E0B" : "#6B7BA4", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                  {ag.key}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
-      </main>
 
-      <footer style={styles.footer}>
-        WPC Pickleball Tournament Manager
-      </footer>
+        {/* WhatsApp preview */}
+        {inviteMode && (
+          <div style={{ background: "#0D2A1A", border: "1.5px solid #1A4A2A", borderRadius: 18, padding: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#4ADE80", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>💬 WhatsApp Vorschau</div>
+            <div style={{ background: "#1A3A25", borderRadius: 12, padding: 14, fontSize: 13, color: "#D1FAE5", lineHeight: 1.8, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+              {inviteMode === "general"
+                ? generalInviteMsg(null)
+                : (inviteCategory.discipline && inviteCategory.level && inviteCategory.age)
+                  ? categoryInviteMsg(null, inviteCategory)
+                  : <span style={{ color: "#6B9A70", fontStyle: "italic" }}>← Bitte Disziplin, Level und Altersgruppe wählen</span>
+              }
+            </div>
+            {/* Direct link copy */}
+            <div style={{ marginTop: 10, background: "#0D1F33", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#4ADE80", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{TOURNAMENT.appUrl}</span>
+              <button style={{ background: "rgba(74,222,128,0.2)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#4ADE80", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0, marginLeft: 8 }}
+                onClick={() => { navigator.clipboard?.writeText(TOURNAMENT.appUrl).catch(() => {}); }}>
+                Kopieren
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+        {inviteMode === "general" && (
+          <a href={getWhatsAppUrl(invitePhone, generalInviteMsg(null))} target="_blank" rel="noopener noreferrer"
+            style={{ ...ST.btnG, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            💬 Per WhatsApp einladen
+          </a>
+        )}
+        {inviteMode === "category" && inviteCategory.discipline && inviteCategory.level && inviteCategory.age && (
+          <a href={getWhatsAppUrl(invitePhone, categoryInviteMsg(null, inviteCategory))} target="_blank" rel="noopener noreferrer"
+            style={{ ...ST.btn, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            💬 Mit Kategorie-Vorschlag einladen
+          </a>
+        )}
+        <button style={ST.ghost} onClick={() => setScreen("dashboard")}>Zurück</button>
+      </div>
+    </div></div>
+  );
+
+  // ── REGISTER ────────────────────────────────────────────────────────────────
+  if (screen === "register") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={ST.hdr}>
+        <button style={ST.back} onClick={() => setScreen("dashboard")}>←</button>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>Kategorie wählen</span>
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 24 }}>
+        {["Disziplin", "Level", "Alter"].map((_, i) => <div key={i} style={{ flex: 1, height: 4, borderRadius: 4, background: i <= step ? "#F59E0B" : "#1E2845" }} />)}
+      </div>
+      {step === 0 && <>
+        <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>Welche Disziplin?</div>
+        <div style={{ color: "#6B7BA4", fontSize: 14, marginBottom: 20 }}>Du kannst bis zu 3 Kategorien spielen.</div>
+        {DISCIPLINES.map(d => (
+          <button key={d.key} style={ST.row()} onClick={() => { setReg({ ...reg, discipline: d.key }); setStep(1); }}>
+            <span style={{ fontSize: 30 }}>{d.icon}</span>
+            <div><div style={{ fontSize: 17, fontWeight: 700 }}>{d.label}</div><div style={{ fontSize: 13, color: "#6B7BA4", marginTop: 2 }}>{d.key === "singles" ? "Einzelwertung" : d.key === "doubles" ? "Herren- oder Damendoppel" : "Gemischtes Doppel"}</div></div>
+            <span style={{ marginLeft: "auto", color: "#3A4A6A" }}>→</span>
+          </button>
+        ))}
+      </>}
+      {step === 1 && <>
+        <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Welches Level?</div>
+        {duprData && <div style={{ background: "rgba(59,130,246,0.1)", borderRadius: 12, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#60A5FA", border: "1px solid rgba(59,130,246,0.2)" }}>⚡ DUPR {duprData.rating.toFixed(2)} → empfohlen: <strong>Level {suggested}</strong></div>}
+        {LEVELS.map(c => (
+          <button key={c.value} style={ST.row(c.color + "55")} onClick={() => { setReg({ ...reg, level: c.value }); setLevelWarn(!!duprData && suggestLevel(duprData.rating) !== c.value); setStep(2); }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: c.color + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: c.color, flexShrink: 0 }}>{c.value}</div>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 17, fontWeight: 700 }}>Level {c.value}</div><div style={{ fontSize: 13, color: "#6B7BA4", marginTop: 2 }}>{c.desc}</div></div>
+            {suggested === c.value && duprData && <span style={{ background: "rgba(59,130,246,0.2)", color: "#60A5FA", borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>⚡ Empfohlen</span>}
+            <span style={{ marginLeft: 8, color: "#3A4A6A" }}>→</span>
+          </button>
+        ))}
+      </>}
+      {step === 2 && <>
+        {levelWarn && <div style={{ background: "rgba(249,115,22,0.1)", border: "1.5px solid rgba(249,115,22,0.4)", borderRadius: 14, padding: 14, marginBottom: 16, fontSize: 13, color: "#F97316", lineHeight: 1.6 }}>⚠️ Dein DUPR ({duprData?.rating.toFixed(2)}) passt nicht zu Level {reg.level}. Empfohlen: Level {suggested}. Du kannst trotzdem fortfahren – wird als unverified markiert.</div>}
+        <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>Altersgruppe?</div>
+        <div style={{ fontSize: 13, color: "#6B7BA4", marginBottom: 16, background: "#0D1F33", borderRadius: 12, padding: "10px 14px" }}>
+          ℹ️ Maßgeblich ist das <strong style={{ color: "#F0F4FF" }}>Turnierjahr {TOURNAMENT.year}</strong> – du wirst {playerAge} Jahre alt.
+        </div>
+        {eligibleGroups.map(ag => (
+          <button key={ag.key} style={ST.row("#F59E0B33")} onClick={() => { setReg({ ...reg, age: ag.key }); needsPartner(reg.discipline) ? setScreen("partnerChoice") : (setPayOption("self"), setScreen("payment")); }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: "#1E2845", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, flexShrink: 0 }}>{ag.key}</div>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 17, fontWeight: 700 }}>{ag.label}</div><div style={{ fontSize: 13, color: "#4ADE80", marginTop: 2 }}>✓ Berechtigt im Jahr {TOURNAMENT.year}</div></div>
+            <span style={{ color: "#3A4A6A" }}>→</span>
+          </button>
+        ))}
+        {AGE_GROUPS.filter(ag => playerAge < parseInt(ag.key)).map(ag => (
+          <div key={ag.key} style={{ background: "#0D1020", border: "1.5px solid #1E2845", borderRadius: 18, padding: 18, display: "flex", alignItems: "center", gap: 14, marginBottom: 12, opacity: 0.45 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: "#1E2845", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "#3A4A6A", flexShrink: 0 }}>{ag.key}</div>
+            <div><div style={{ fontSize: 17, fontWeight: 700, color: "#3A4A6A" }}>{ag.label}</div><div style={{ fontSize: 13, color: "#EF4444", marginTop: 2 }}>✗ Du wirst {TOURNAMENT.year} erst {playerAge} – Mindestalter {ag.key}</div></div>
+          </div>
+        ))}
+      </>}
+    </div></div>
+  );
+
+  // ── PARTNER CHOICE ───────────────────────────────────────────────────────────
+  if (screen === "partnerChoice") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={ST.hdr}>
+        <button style={ST.back} onClick={() => setScreen("register")}>←</button>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>Partner</span>
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>Hast du schon<br />einen Partner? 👥</div>
+        <div style={{ background: "#141A2E", borderRadius: 14, padding: 14, fontSize: 13, color: "#6B7BA4", border: "1.5px solid #1E2845" }}>
+          {DISCIPLINES.find(d => d.key === reg.discipline)?.icon} {DISCIPLINES.find(d => d.key === reg.discipline)?.label} · Level {reg.level} · {reg.age}
+        </div>
+        <button style={ST.row("#F59E0B55")} onClick={() => { setPartnerMode("have"); setScreen("partnerInvite"); }}>
+          <span style={{ fontSize: 30 }}>📱</span>
+          <div><div style={{ fontSize: 17, fontWeight: 700 }}>Ja, ich habe einen Partner</div><div style={{ fontSize: 13, color: "#6B7BA4", marginTop: 2 }}>Ich gebe seine Handynummer ein</div></div>
+          <span style={{ marginLeft: "auto", color: "#3A4A6A" }}>→</span>
+        </button>
+        <button style={ST.row("#4ADE8055")} onClick={() => { setPartnerMode("search"); setPayOption(null); setScreen("payment"); }}>
+          <span style={{ fontSize: 30 }}>🔍</span>
+          <div><div style={{ fontSize: 17, fontWeight: 700 }}>Nein, ich suche noch</div><div style={{ fontSize: 13, color: "#6B7BA4", marginTop: 2 }}>{hasAnyPaid ? "Kostenlos auf Partnerbörse eintragen" : "Zahlung erst nach Paarung (24h)"}</div></div>
+          <span style={{ marginLeft: "auto", color: "#3A4A6A" }}>→</span>
+        </button>
+        <div style={{ background: "#0D1F33", borderRadius: 14, padding: 16, fontSize: 13, color: "#6B7BA4", lineHeight: 1.7 }}>
+          💡 <strong style={{ color: "#F0F4FF" }}>Partnerbörse:</strong> Du erscheinst in der Liste für deine Kategorie.<br />
+          Wenn du und ein Partner euch einigt, habt ihr <strong style={{ color: "#F0F4FF" }}>24h Zeit</strong> zu zahlen.<br />
+          Zahlt nur einer → der andere fliegt raus, Zahlender bleibt drin.
+        </div>
+      </div>
+    </div></div>
+  );
+
+  // ── PARTNER INVITE ───────────────────────────────────────────────────────────
+  if (screen === "partnerInvite") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={ST.hdr}>
+        <button style={ST.back} onClick={() => setScreen("partnerChoice")}>←</button>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>Partner einladen</span>
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ fontSize: 24, fontWeight: 800 }}>Wer spielt mit dir? 📱</div>
+        <div style={{ color: "#6B7BA4", fontSize: 14, lineHeight: 1.6 }}>Handynummer eingeben – Partner bekommt automatisch eine WhatsApp.</div>
+        <div>
+          <label style={ST.lbl}>Handynummer Partner</label>
+          <input style={ST.inp} type="tel" placeholder="+43 664 987 654 3" value={partnerPhone} onChange={e => setPartnerPhone(e.target.value)} />
+        </div>
+        {partnerPhone.length > 5 && (
+          <div style={{ background: "#0D2A1A", border: "1.5px solid #1A4A2A", borderRadius: 18, padding: 16 }}>
+            <div style={ST.lbl}>💬 WhatsApp Vorschau</div>
+            <div style={{ background: "#1A3A25", borderRadius: 12, padding: 14, fontSize: 13, color: "#D1FAE5", lineHeight: 1.7 }}>
+              Hallo! 👋 <strong>{profile.firstName} {profile.lastName}</strong> möchte mit dir beim <strong>{TOURNAMENT.name}</strong> spielen.<br /><br />
+              {DISCIPLINES.find(d => d.key === reg.discipline)?.icon} {DISCIPLINES.find(d => d.key === reg.discipline)?.label} · Level {reg.level} · {reg.age}<br /><br />
+              Bestätige hier 👇<br />
+              <span style={{ color: "#4ADE80" }}>{TOURNAMENT.appUrl}/invite/abc123</span><br /><br />
+              <span style={{ color: "#6B9A70", fontSize: 12 }}>Zahlung bis spätestens 72h vor Turnierbeginn.</span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+        <button style={{ ...ST.btn, opacity: partnerPhone.length < 8 ? 0.4 : 1 }} onClick={() => partnerPhone.length >= 8 && (setPayOption("self"), setScreen("payment"))}>Partner einladen & weiter →</button>
+        <button style={ST.ghost} onClick={() => { setPayOption("self"); setScreen("payment"); }}>Später hinzufügen</button>
+      </div>
+    </div></div>
+  );
+
+  // ── PARTNER BOARD ────────────────────────────────────────────────────────────
+  if (screen === "board") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={ST.hdr}>
+        <button style={ST.back} onClick={() => setScreen("dashboard")}>←</button>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>Partnerbörse 🔍</span>
+      </div>
+      <div style={{ fontSize: 14, color: "#6B7BA4", marginBottom: 16 }}>Spieler die noch einen Partner suchen</div>
+      <div style={{ marginBottom: 10 }}>
+        <div style={ST.lbl}>Level</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {LEVELS.map(l => <button key={l.value} onClick={() => setFLevel(fLevel === l.value ? null : l.value)} style={{ padding: "8px 16px", borderRadius: 50, border: "2px solid " + (fLevel === l.value ? l.color : "#1E2845"), background: fLevel === l.value ? l.color + "22" : "transparent", color: fLevel === l.value ? l.color : "#6B7BA4", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>{l.value}</button>)}
+        </div>
+      </div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={ST.lbl}>Altersgruppe</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {AGE_GROUPS.map(ag => <button key={ag.key} onClick={() => setFAge(fAge === ag.key ? null : ag.key)} style={{ padding: "8px 16px", borderRadius: 50, border: "2px solid " + (fAge === ag.key ? "#F59E0B" : "#1E2845"), background: fAge === ag.key ? "rgba(245,158,11,0.15)" : "transparent", color: fAge === ag.key ? "#F59E0B" : "#6B7BA4", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>{ag.key}</button>)}
+        </div>
+      </div>
+      {board.filter(p => (!fLevel || p.level === fLevel) && (!fAge || p.age === fAge)).map(p => {
+        const d = DISCIPLINES.find(x => x.key === p.discipline);
+        const col = lc(p.level);
+        return (
+          <div key={p.id} style={{ ...ST.card, borderColor: col + "33" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: col + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{d?.icon}</div>
+                <div><div style={{ fontWeight: 700, fontSize: 16 }}>{p.name}</div><div style={{ fontSize: 13, color: "#6B7BA4" }}>📍 {p.city}</div></div>
+              </div>
+              <span style={ST.tag(col)}>{p.level}</span>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={ST.tag("#8B9CC0")}>{d?.label}</span>
+              <span style={ST.tag("#8B9CC0")}>{p.age}</span>
+              <DuprBadge rating={p.duprRating} verified={p.duprVerified} size="small" />
+            </div>
+            {requestingId === p.id ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <textarea style={{ ...ST.inp, fontSize: 14, resize: "none", height: 80 }} placeholder="Kurze Nachricht... (optional)" value={requestMsg} onChange={e => setRequestMsg(e.target.value)} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={{ ...ST.btnG, flex: 2, padding: 12 }} onClick={() => {
+                    setIncomingRequests([...incomingRequests, { id: Date.now(), fromName: profile.firstName + " " + profile.lastName, fromCity: profile.city || "Wien", fromPhone: phone, fromDupr: duprData?.rating || null, fromVerified: !!duprData, level: p.level, age: p.age, discipline: p.discipline, message: requestMsg || "Würde gern mit dir spielen! 🏓", timestamp: "gerade eben", status: "pending", toId: p.id }]);
+                    setSentRequests([...sentRequests, p.id]);
+                    setRequestingId(null); setRequestMsg("");
+                  }}>📨 Anfrage senden</button>
+                  <button style={{ flex: 1, background: "transparent", border: "1.5px solid #1E2845", borderRadius: 14, padding: 12, cursor: "pointer", color: "#6B7BA4", fontSize: 14 }} onClick={() => { setRequestingId(null); setRequestMsg(""); }}>Abbruch</button>
+                </div>
+              </div>
+            ) : sentRequests.includes(p.id) ? (
+              <div style={{ background: "rgba(74,222,128,0.1)", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "#4ADE80", textAlign: "center" }}>✅ Anfrage gesendet – wartet auf Antwort</div>
+            ) : (
+              <button style={ST.btnG} onClick={() => setRequestingId(p.id)}>📨 Partneranfrage senden</button>
+            )}
+          </div>
+        );
+      })}
+      {board.filter(p => (!fLevel || p.level === fLevel) && (!fAge || p.age === fAge)).length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#3A4A6A" }}><div style={{ fontSize: 36, marginBottom: 8 }}>🔍</div><div>Keine Spieler in dieser Kategorie</div></div>}
+    </div></div>
+  );
+
+  // ── INCOMING REQUESTS ────────────────────────────────────────────────────────
+  if (screen === "requests") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={ST.hdr}>
+        <button style={ST.back} onClick={() => setScreen("dashboard")}>←</button>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>Partneranfragen 📨</span>
+      </div>
+      {pendingCount === 0 && <div style={{ ...ST.card, textAlign: "center", padding: 40, color: "#3A4A6A" }}><div style={{ fontSize: 36, marginBottom: 8 }}>✅</div><div>Keine offenen Anfragen</div></div>}
+      {pendingCount > 0 && <>
+        <div style={{ fontSize: 13, color: "#6B7BA4", marginBottom: 16, lineHeight: 1.6 }}>Wähle deinen Partner – alle anderen Anfragen werden automatisch abgelehnt.</div>
+        {incomingRequests.filter(r => r.status === "pending").map(req => {
+          const d = DISCIPLINES.find(x => x.key === req.discipline);
+          const col = lc(req.level);
+          return (
+            <div key={req.id} style={{ ...ST.card, borderColor: col + "44", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: "50%", background: col + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{d?.icon}</div>
+                  <div><div style={{ fontWeight: 700, fontSize: 16 }}>{req.fromName}</div><div style={{ fontSize: 12, color: "#6B7BA4" }}>📍 {req.fromCity} · {req.timestamp}</div></div>
+                </div>
+                <DuprBadge rating={req.fromDupr} verified={req.fromVerified} size="small" />
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                <span style={ST.tag(col)}>{req.level}</span>
+                <span style={ST.tag("#8B9CC0")}>{d?.label}</span>
+                <span style={ST.tag("#8B9CC0")}>{req.age}</span>
+              </div>
+              <div style={{ background: "#0D1F33", borderRadius: 12, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#D1E8FF", lineHeight: 1.6, fontStyle: "italic" }}>💬 "{req.message}"</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button style={{ ...ST.btnG, flex: 2, padding: 14 }} onClick={() => {
+                  setIncomingRequests(incomingRequests.map(r => r.id === req.id ? { ...r, status: "accepted" } : r.status === "pending" ? { ...r, status: "rejected" } : r));
+                  setBoard(board.filter(p => p.phone !== phone));
+                  setReg({ discipline: req.discipline, level: req.level, age: req.age });
+                  setPartnerMode("have"); setPartnerPhone(req.fromPhone); setPayOption("self");
+                  setScreen("pairingConfirmed");
+                }}>✅ Annehmen</button>
+                <button style={{ ...ST.btnR, flex: 1 }} onClick={() => setIncomingRequests(incomingRequests.map(r => r.id === req.id ? { ...r, status: "rejected" } : r))}>✗ Ablehnen</button>
+              </div>
+            </div>
+          );
+        })}
+      </>}
+      {incomingRequests.filter(r => r.status !== "pending").length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={ST.lbl}>Bereits beantwortet</div>
+          {incomingRequests.filter(r => r.status !== "pending").map(req => (
+            <div key={req.id} style={{ ...ST.card, opacity: 0.6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{req.fromName}</div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: req.status === "accepted" ? "#4ADE80" : "#EF4444" }}>{req.status === "accepted" ? "✅ Angenommen" : "✗ Abgelehnt"}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div></div>
+  );
+
+  // ── PAIRING CONFIRMED ────────────────────────────────────────────────────────
+  if (screen === "pairingConfirmed") return (
+    <div style={ST.wrap}>
+      <div style={{ ...ST.page, justifyContent: "center", alignItems: "center", gap: 20, textAlign: "center" }}>
+        <div style={{ width: 110, height: 110, borderRadius: "50%", background: "radial-gradient(circle,#4ADE8033,#0D2A1A)", border: "2px solid #4ADE8066", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 52 }}>🤝</div>
+        <div>
+          <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Paarung bestätigt!</div>
+          <div style={{ color: "#6B7BA4", fontSize: 15, lineHeight: 1.6 }}>Du und <strong style={{ color: "#F0F4FF" }}>{partnerPhone}</strong> seid jetzt ein Team.</div>
+        </div>
+        <div style={{ background: "#0D2137", border: "1.5px solid #F59E0B44", borderRadius: 18, padding: 18, width: "100%" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#F59E0B", marginBottom: 10 }}>⏱️ Zahlung innerhalb 24h</div>
+          <div style={{ fontSize: 13, color: "#8BA4C0", lineHeight: 1.7 }}>
+            Ihr habt <strong style={{ color: "#F0F4FF" }}>24 Stunden</strong> um zu bezahlen.<br />
+            Zahlt nur einer → der andere fliegt raus.<br />
+            Zahlt keiner → beide raus, kein Geld fällig.
+          </div>
+        </div>
+        <div style={{ background: "#0D2A1A", border: "1.5px solid #1A4A2A", borderRadius: 18, padding: 16, width: "100%" }}>
+          <div style={{ fontSize: 13, color: "#4ADE80", fontWeight: 700, marginBottom: 8 }}>💬 WhatsApp gesendet</div>
+          <div style={{ fontSize: 13, color: "#6B7BA4" }}>Beide Spieler wurden per WhatsApp benachrichtigt mit dem Zahlungslink.</div>
+        </div>
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+          <button style={ST.btn} onClick={() => setScreen("payment")}>Jetzt sofort bezahlen →</button>
+          <button style={ST.ghost} onClick={() => setScreen("dashboard")}>Später bezahlen (24h Zeit)</button>
+        </div>
+      </div>
     </div>
-  )
-}
+  );
 
-const styles = {
-  app: {
-    minHeight: '100vh',
-    color: '#E2E8F0',
-    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-    maxWidth: 960,
-    margin: '0 auto',
-    padding: '0 20px',
-  },
-  header: {
-    textAlign: 'center',
-    padding: '40px 0 20px',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 700,
-    color: '#FFFFFF',
-    letterSpacing: '-0.5px',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-  nav: {
-    display: 'flex',
-    gap: 4,
-    background: '#111827',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
-  },
-  tab: {
-    flex: 1,
-    padding: '12px 20px',
-    background: 'transparent',
-    border: 'none',
-    color: '#64748B',
-    fontSize: 14,
-    fontWeight: 500,
-    cursor: 'pointer',
-    borderRadius: 10,
-    transition: 'all 0.2s',
-  },
-  tabActive: {
-    flex: 1,
-    padding: '12px 20px',
-    background: '#1E293B',
-    border: 'none',
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: 'pointer',
-    borderRadius: 10,
-  },
-  main: {
-    minHeight: 400,
-  },
-  sectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  h2: {
-    fontSize: 20,
-    fontWeight: 600,
-    color: '#F1F5F9',
-  },
-  form: {
-    display: 'flex',
-    gap: 10,
-    marginBottom: 20,
-  },
-  input: {
-    flex: 1,
-    padding: '12px 16px',
-    background: '#111827',
-    border: '1px solid #1E293B',
-    borderRadius: 10,
-    color: '#E2E8F0',
-    fontSize: 14,
-    outline: 'none',
-  },
-  btnPrimary: {
-    padding: '12px 24px',
-    background: '#3B82F6',
-    border: 'none',
-    borderRadius: 10,
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
-  btnStart: {
-    padding: '10px 24px',
-    background: '#10B981',
-    border: 'none',
-    borderRadius: 10,
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  btnDanger: {
-    padding: '10px 24px',
-    background: '#EF4444',
-    border: 'none',
-    borderRadius: 10,
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  playerList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-  },
-  playerCard: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-    padding: '14px 18px',
-    background: '#111827',
-    borderRadius: 10,
-    border: '1px solid #1E293B',
-  },
-  playerIndex: {
-    width: 28,
-    height: 28,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#1E293B',
-    borderRadius: '50%',
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#94A3B8',
-    flexShrink: 0,
-  },
-  playerName: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: 500,
-  },
-  btnRemove: {
-    width: 28,
-    height: 28,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'transparent',
-    border: '1px solid #374151',
-    borderRadius: '50%',
-    color: '#EF4444',
-    fontSize: 12,
-    cursor: 'pointer',
-  },
-  muted: {
-    color: '#475569',
-    fontSize: 14,
-    textAlign: 'center',
-    padding: 40,
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '60px 20px',
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  bracketScroll: {
-    overflowX: 'auto',
-    paddingBottom: 20,
-  },
-  bracket: {
-    display: 'flex',
-    gap: 24,
-    minWidth: 'fit-content',
-  },
-  roundColumn: {
-    minWidth: 300,
-    flexShrink: 0,
-  },
-  roundTitle: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  roundMatches: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-  },
-  matchCard: {
-    background: '#111827',
-    borderRadius: 12,
-    padding: 16,
-    border: '1px solid #1E293B',
-  },
-  matchBye: {
-    opacity: 0.6,
-  },
-  matchCompleted: {
-    borderColor: '#10B981',
-  },
-  matchHeader: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  matchPlayers: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-  },
-  matchPlayer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '10px 14px',
-    background: '#0F172A',
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 500,
-  },
-  matchWinner: {
-    background: '#064E3B',
-    border: '1px solid #10B981',
-  },
-  vs: {
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: 700,
-    color: '#475569',
-    letterSpacing: 2,
-  },
-  scoreControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-  },
-  btnScore: {
-    width: 28,
-    height: 28,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#1E293B',
-    border: 'none',
-    borderRadius: 6,
-    color: '#E2E8F0',
-    fontSize: 16,
-    cursor: 'pointer',
-    fontWeight: 700,
-  },
-  scoreValue: {
-    fontSize: 18,
-    fontWeight: 700,
-    minWidth: 24,
-    textAlign: 'center',
-    color: '#FFFFFF',
-  },
-  scoreFinal: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: '#94A3B8',
-  },
-  btnFinish: {
-    width: '100%',
-    marginTop: 12,
-    padding: '10px',
-    background: '#3B82F6',
-    border: 'none',
-    borderRadius: 8,
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  winnerBadge: {
-    marginTop: 10,
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: 600,
-    color: '#10B981',
-  },
-  byeLabel: {
-    fontSize: 12,
-    color: '#64748B',
-    fontStyle: 'italic',
-  },
-  winnerName: {
-    fontWeight: 600,
-    color: '#F1F5F9',
-  },
-  champion: {
-    textAlign: 'center',
-    padding: '32px 20px',
-    marginBottom: 24,
-    background: 'linear-gradient(135deg, #064E3B, #111827)',
-    borderRadius: 16,
-    border: '1px solid #10B981',
-  },
-  trophy: {
-    fontSize: 56,
-    marginBottom: 12,
-  },
-  championTitle: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#10B981',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  championName: {
-    fontSize: 28,
-    fontWeight: 700,
-    color: '#FFFFFF',
-  },
-  footer: {
-    textAlign: 'center',
-    padding: '40px 0 24px',
-    fontSize: 12,
-    color: '#334155',
-  },
-}
+  // ── PAYMENT ──────────────────────────────────────────────────────────────────
+  if (screen === "payment") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={ST.hdr}>
+        <button style={ST.back} onClick={() => needsPartner(reg.discipline) ? setScreen("partnerInvite") : setScreen("register")}>←</button>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>Bezahlen & Anmelden</span>
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Warenkorb */}
+        <div style={ST.card}>
+          <div style={ST.lbl}>Warenkorb ({registrations.filter(r => r.pending).length + 1}/3)</div>
+          {pendingPayable.map(r => {
+            const d = DISCIPLINES.find(x => x.key === r.discipline);
+            return <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0D1F33", borderRadius: 12, padding: "10px 14px", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 18 }}>{d?.icon}</span><div><div style={{ fontSize: 13, fontWeight: 600 }}>{d?.label} · {r.age}</div><div style={{ fontSize: 11, color: "#6B7BA4" }}>Level {r.level}{r.partnerPhone ? " · 👥 " + r.partnerPhone : ""}</div></div></div>
+              <span style={{ color: "#F59E0B", fontWeight: 700, fontSize: 13 }}>€ 35</span>
+            </div>;
+          })}
+          {pendingSearch.map(r => {
+            const d = DISCIPLINES.find(x => x.key === r.discipline);
+            return <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(74,222,128,0.05)", borderRadius: 12, padding: "10px 14px", marginBottom: 8, border: "1px solid rgba(74,222,128,0.15)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 18 }}>{d?.icon}</span><div><div style={{ fontSize: 13, fontWeight: 600 }}>{d?.label} · {r.age}</div><div style={{ fontSize: 11, color: "#4ADE80" }}>🔍 Partnerbörse – erst nach Paarung</div></div></div>
+              <span style={{ color: "#4ADE80", fontWeight: 700, fontSize: 13 }}>€ 0 jetzt</span>
+            </div>;
+          })}
+          {/* Current reg */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: currentIsSearch ? "rgba(74,222,128,0.08)" : "rgba(245,158,11,0.1)", borderRadius: 12, padding: "10px 14px", border: currentIsSearch ? "1px solid rgba(74,222,128,0.3)" : "1px solid rgba(245,158,11,0.3)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>{DISCIPLINES.find(d => d.key === reg.discipline)?.icon}</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{DISCIPLINES.find(d => d.key === reg.discipline)?.label} · {reg.age} <span style={{ color: "#F59E0B", fontSize: 11 }}>← neu</span></div>
+                <div style={{ fontSize: 11, color: currentIsSearch ? "#4ADE80" : "#6B7BA4" }}>{currentIsSearch ? "🔍 Partnerbörse – erst nach Paarung" : partnerPhone ? "👥 " + partnerPhone : "Einzel"}</div>
+              </div>
+            </div>
+            <span style={{ color: currentIsSearch ? "#4ADE80" : "#F59E0B", fontWeight: 700, fontSize: 13 }}>{currentIsSearch ? "€ 0 jetzt" : "€ 35"}</span>
+          </div>
+        </div>
 
-export default App
+        {/* Zahlungsoption */}
+        {payableCount > 0 && <>
+          <div style={ST.lbl}>Wer zahlt? ({payableCount} {payableCount === 1 ? "Kategorie" : "Kategorien"})</div>
+          {(needsPartner(reg.discipline) && !currentIsSearch) || pendingPayable.some(r => r.partnerPhone) ? <>
+            <PayOption icon="👤" title="Nur mein Anteil" desc={`Partner zahlt selbst – bis 72h vor Turnier · ${payableCount}× € 35`} price={`€ ${payableCount * 35}`} selected={payOption === "self"} onClick={() => setPayOption("self")} />
+            <PayOption icon="👥" title="Ich zahle für alle Partner mit" desc={`Kein Stress für Partner · ${payableCount}× € 70`} price={`€ ${payableCount * 70}`} selected={payOption === "both"} onClick={() => setPayOption("both")} />
+            <PayOption icon="💬" title="Partner zahlen für uns alle" desc="Du zahlst heute nichts" price="€ 0 jetzt" selected={payOption === "partner"} onClick={() => setPayOption("partner")} />
+          </> : <PayOption icon="👤" title={payableCount > 1 ? `Alle ${payableCount} Startgelder` : "Mein Startgeld"} desc={payableCount > 1 ? `${payableCount}× € 35,00` : "Einzel – nur dein Anteil"} price={`€ ${payableCount * 35}`} selected={payOption === "self"} onClick={() => setPayOption("self")} />}
+        </>}
+
+        {currentIsSearch && <div style={{ ...ST.card, borderColor: "#1A4A2A" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#4ADE80", marginBottom: 8 }}>🔍 Partnerbörse – keine Zahlung jetzt</div>
+          <div style={{ fontSize: 13, color: "#8BA4C0", lineHeight: 1.7 }}>Nach Paarung: <strong style={{ color: "#F0F4FF" }}>beide zahlen innerhalb 24h</strong><br />Nur einer zahlt → anderer fliegt raus<br />Kein Partner bis Turnier → Eintrag erlischt</div>
+        </div>}
+
+        {(payOption === "self" || payOption === "both") && payableCount > 0 && (
+          <div style={{ ...ST.card, borderColor: "#2A4A6C" }}>
+            <div style={ST.lbl}>Zahlungsmethode</div>
+            {[{ l: "Kreditkarte", d: "Visa •••• 4242", a: true }, { l: "PayPal", d: "max@beispiel.at", a: false }, { l: "Klarna", d: "Später zahlen", a: false }].map((m, i) => (
+              <div key={i} style={{ background: m.a ? "#0D2137" : "#0D1F33", borderRadius: 12, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, border: m.a ? "1.5px solid #2A4A6C" : "none" }}>
+                <span style={{ fontSize: 14 }}>{m.l}{m.a ? " ✓" : ""}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: m.a ? "#F59E0B" : "#6B7BA4" }}>{m.d}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Total */}
+        <div style={{ background: "#0D1F33", borderRadius: 16, padding: "14px 18px" }}>
+          {(pendingSearch.length > 0 || currentIsSearch) && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}><span style={{ color: "#4ADE80" }}>🔍 {pendingSearch.length + (currentIsSearch ? 1 : 0)} × Partnerbörse</span><span style={{ color: "#4ADE80" }}>€ 0,00 jetzt</span></div>}
+          {payableCount > 0 && payOption && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}><span style={{ color: "#6B7BA4" }}>{payableCount} × Startgeld</span><span style={{ color: "#6B7BA4" }}>€ {pricePerReg} × {payableCount}</span></div>}
+          <div style={{ borderTop: "1px solid #1E2845", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Heute fällig</span>
+            <span style={{ fontWeight: 800, fontSize: 24, color: "#F59E0B" }}>{payOption || currentIsSearch ? `€ ${totalToday.toFixed(2)}` : "—"}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+        {/* Weitere Kategorie */}
+        {registrations.filter(r => !r.pending).length === 0 && registrations.filter(r => r.pending).length < 2 && (
+          <div style={{ background: "#0D1F33", borderRadius: 16, padding: 16, border: "1.5px solid #1E2845" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#F0F4FF", marginBottom: 4 }}>+ Noch eine Kategorie? ({registrations.filter(r => r.pending).length + 1}/3)</div>
+            <div style={{ fontSize: 12, color: "#6B7BA4", marginBottom: 12 }}>Füge weitere Kategorien hinzu – du zahlst alles zusammen.</div>
+            <button style={{ ...ST.ghost, padding: 12, fontSize: 14 }} onClick={() => {
+              const pending = { ...reg, id: Date.now(), partnerPhone: partnerMode === "have" ? partnerPhone : null, lookingForPartner: partnerMode === "search", paid: false, paidForPartner: false, payOption, pending: true };
+              setRegistrations([...registrations, pending]);
+              setReg({ discipline: null, level: null, age: null }); setPartnerPhone(""); setPartnerMode(null); setPayOption(null); setStep(0); setLevelWarn(false);
+              setScreen("register");
+            }}>+ Weitere Kategorie hinzufügen →</button>
+          </div>
+        )}
+
+        {/* CTA */}
+        <button style={{ ...ST.btn, opacity: (!payOption && !currentIsSearch) ? 0.4 : 1 }} onClick={() => {
+          if (payOption || currentIsSearch) {
+            const updatedRegs = registrations.map(r => r.pending ? { ...r, paid: !r.lookingForPartner && payOption !== "partner", pending: false } : r);
+            setRegistrations(updatedRegs);
+            finish();
+          }
+        }}>
+          {(() => {
+            const pp = registrations.filter(r => r.pending && !r.lookingForPartner);
+            const total = pp.length + (!currentIsSearch ? 1 : 0);
+            if (total > 1) return `${total} Kategorien bezahlen ✓`;
+            if (currentIsSearch) return "Kostenlos eintragen →";
+            return "Jetzt anmelden ✓";
+          })()}
+        </button>
+        {registrations.filter(r => r.pending && r.lookingForPartner).length > 0 && <div style={{ fontSize: 12, color: "#4ADE80", textAlign: "center" }}>🔍 Partnerbörse-Kategorien kostenlos – Zahlung erst nach Paarung</div>}
+      </div>
+    </div></div>
+  );
+
+  // ── SUCCESS ──────────────────────────────────────────────────────────────────
+  if (screen === "success") return (
+    <div style={ST.wrap}>
+      <div style={{ ...ST.page, justifyContent: "center", alignItems: "center", gap: 20, textAlign: "center" }}>
+        <div style={{ width: 100, height: 100, borderRadius: "50%", background: "radial-gradient(circle,#4ADE8033,#0D2A1A)", border: "2px solid #4ADE8066", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48 }}>
+          {partnerMode === "search" ? "🔍" : "✅"}
+        </div>
+        <div>
+          <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>{partnerMode === "search" ? "Eingetragen!" : "Angemeldet!"}</div>
+          <div style={{ color: "#6B7BA4", fontSize: 15, lineHeight: 1.6 }}>
+            {partnerMode === "have" && partnerPhone ? `Dein Partner (${partnerPhone}) bekommt eine WhatsApp.` : partnerMode === "search" ? "Du stehst jetzt auf der Partnerbörse." : "Deine Anmeldung ist bestätigt."}
+          </div>
+        </div>
+        {partnerMode === "search" && <div style={{ background: "#0D2A1A", border: "1.5px solid #1A4A2A", borderRadius: 18, padding: 18, width: "100%" }}>
+          <div style={{ fontSize: 13, color: "#4ADE80", fontWeight: 700, marginBottom: 8 }}>🔍 Partnerbörse aktiv</div>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>{DISCIPLINES.find(d => d.key === reg.discipline)?.label} · Level {reg.level} · {reg.age}</div>
+          <div style={{ fontSize: 13, color: "#6B7BA4", lineHeight: 1.6 }}>Sobald sich jemand meldet → WhatsApp.<br />Beide müssen innerhalb 24h zahlen.</div>
+        </div>}
+        {partnerMode === "have" && payOption === "self" && <div style={{ background: "#0D1F33", border: "1.5px solid #1E2845", borderRadius: 18, padding: 16, width: "100%" }}>
+          <div style={{ fontSize: 13, color: "#F59E0B", fontWeight: 700, marginBottom: 10 }}>⏰ Partner hat Zeit bis 72h vor Turnier</div>
+          {["7 Tage · Partner erinnern", "3 Tage · Partner + du", "72h · Letzte Warnung → Backup-Karte"].map((r, i) => (
+            <div key={i} style={{ fontSize: 13, color: "#6B7BA4", display: "flex", gap: 8, marginBottom: 6 }}><span>⏰</span><span>{r}</span></div>
+          ))}
+        </div>}
+        {payOption === "both" && <div style={{ background: "#0D2A1A", border: "1.5px solid #1A4A2A", borderRadius: 18, padding: 16, width: "100%" }}>
+          <div style={{ fontSize: 13, color: "#4ADE80", fontWeight: 700, marginBottom: 8 }}>✅ Du hast für beide bezahlt</div>
+          <div style={{ fontSize: 13, color: "#6B7BA4" }}>Dein Partner muss nichts mehr zahlen – beide bestätigt.</div>
+        </div>}
+
+        {/* Freund einladen vom Success Screen */}
+        <button onClick={() => setScreen("invite")} style={{ width: "100%", background: "linear-gradient(135deg,#1A2A4C,#0D1F33)", border: "1.5px solid #2A4A6C", borderRadius: 18, padding: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
+          <span style={{ fontSize: 28 }}>👫</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#F0F4FF" }}>Freund einladen!</div>
+            <div style={{ fontSize: 12, color: "#60A5FA", marginTop: 2 }}>Teile das Turnier per WhatsApp</div>
+          </div>
+          <span style={{ color: "#60A5FA" }}>→</span>
+        </button>
+
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+          {registrations.length < 3 && <button style={{ ...ST.btn, width: "100%" }} onClick={() => { setReg({ discipline: null, level: null, age: null }); setPartnerPhone(""); setPartnerMode(null); setPayOption(null); setStep(0); setLevelWarn(false); setScreen("register"); }}>+ Weitere Kategorie anmelden</button>}
+          <button style={{ ...ST.ghost, width: "100%" }} onClick={() => setScreen("dashboard")}>{registrations.length >= 3 ? "Zum Dashboard →" : "Zurück zum Dashboard"}</button>
+        </div>
+
+        {registrations.length > 0 && <div style={{ width: "100%", background: "#0D1F33", borderRadius: 18, padding: 16, border: "1.5px solid #1E2845" }}>
+          <div style={ST.lbl}>Meine Anmeldungen ({registrations.length}/3)</div>
+          {registrations.map(r => {
+            const d = DISCIPLINES.find(x => x.key === r.discipline);
+            const col = lc(r.level);
+            return <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 18 }}>{d?.icon}</span><div><div style={{ fontSize: 13, fontWeight: 600 }}>{d?.label} · {r.age}</div><div style={{ fontSize: 11, color: r.paid ? "#4ADE80" : "#F59E0B" }}>{r.paid ? "✅ Bezahlt" : "⏳ Ausstehend"}</div></div></div>
+              <span style={ST.tag(col)}>{r.level}</span>
+            </div>;
+          })}
+        </div>}
+      </div>
+    </div>
+  );
+
+  // ── ADMIN ────────────────────────────────────────────────────────────────────
+  if (screen === "admin") return (
+    <div style={ST.wrap}><div style={ST.page}>
+      <div style={{ ...ST.hdr, justifyContent: "space-between" }}>
+        <div><div style={{ fontSize: 13, color: "#F59E0B", fontWeight: 700 }}>ORGANISATOR</div><div style={{ fontSize: 22, fontWeight: 800 }}>Teilnehmerliste</div></div>
+        <button style={{ ...ST.back, color: "#F59E0B" }} onClick={() => setScreen("splash")}>✕</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        {[{ label: "Gesamt", value: adminRegs.length, col: "#F0F4FF" }, { label: "Bezahlt", value: adminRegs.filter(r => r.paid).length, col: "#4ADE80" }, { label: "Offen", value: adminRegs.filter(r => !r.paid || (r.partnerName && !r.partnerPaid && !r.paidForPartner)).length, col: "#F97316" }].map((stat, i) => (
+          <div key={i} style={{ flex: 1, background: "#141A2E", borderRadius: 16, padding: 14, textAlign: "center", border: "1.5px solid #1E2845" }}>
+            <div style={{ fontSize: 26, fontWeight: 800, color: stat.col }}>{stat.value}</div>
+            <div style={{ fontSize: 11, color: "#6B7BA4", marginTop: 2 }}>{stat.label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={ST.lbl}>Alle Anmeldungen</div>
+      {adminRegs.map(r => {
+        const d = DISCIPLINES.find(x => x.key === r.discipline);
+        const col = lc(r.level);
+        const issue = !r.paid || (r.partnerName && !r.partnerPaid && !r.paidForPartner);
+        return (
+          <div key={r.id} style={{ ...ST.card, borderColor: issue ? "#EF444433" : "#1E2845" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{r.name}</div>
+                <div style={{ fontSize: 12, color: "#6B7BA4", marginTop: 2 }}>{r.phone}</div>
+                <div style={{ marginTop: 6 }}><DuprBadge rating={r.duprRating} verified={!!r.duprRating} size="small" /></div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                <span style={ST.tag(col)}>{r.level}</span>
+                <span style={{ fontSize: 11, color: r.paid ? "#4ADE80" : "#EF4444", fontWeight: 700 }}>{r.paid ? (r.paidForPartner ? "✅ Für beide" : "✅ Bezahlt") : "❌ Offen"}</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: r.partnerName ? 10 : 0 }}>
+              <span style={ST.tag("#8B9CC0")}>{d?.icon} {d?.label}</span>
+              <span style={ST.tag("#8B9CC0")}>{r.age}</span>
+            </div>
+            {r.partnerName && <div style={{ background: "#0D1F33", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ fontSize: 13 }}><span style={{ color: "#6B7BA4" }}>Partner: </span><span style={{ fontWeight: 600 }}>{r.partnerName}</span></div>
+              <span style={{ fontSize: 12, color: r.paidForPartner ? "#4ADE80" : r.partnerPaid ? "#4ADE80" : "#F59E0B", fontWeight: 700 }}>{r.paidForPartner ? "✅ Übernommen" : r.partnerPaid ? "✅ Bezahlt" : "⏳ Ausstehend"}</span>
+            </div>}
+            <div style={{ display: "flex", gap: 8 }}>
+              {!r.paid && <button style={{ ...ST.btn, padding: 10, fontSize: 13 }} onClick={() => setAdminRegs(adminRegs.map(x => x.id === r.id ? { ...x, paid: true } : x))}>💳 Als bezahlt markieren</button>}
+              {r.partnerName && !r.partnerPaid && !r.paidForPartner && r.paid && <button style={{ ...ST.btnG, padding: 10, fontSize: 13 }} onClick={() => setAdminRegs(adminRegs.map(x => x.id === r.id ? { ...x, partnerPaid: true } : x))}>✅ Partner bezahlt</button>}
+            </div>
+          </div>
+        );
+      })}
+    </div></div>
+  );
+
+  return null;
+}
