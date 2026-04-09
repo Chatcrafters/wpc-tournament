@@ -96,7 +96,7 @@ export default function App() {
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteCategory, setInviteCategory] = useState({ discipline: null, level: null, age: null });
 
-  // ── Check existing session on mount ──
+  // ── Check existing session on mount + listen for auth changes ──
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -105,6 +105,22 @@ export default function App() {
         loadProfile(session.user.id);
       }
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+        setPhone(session.user.phone || "");
+        if (event === "SIGNED_IN") {
+          loadProfile(session.user.id);
+        }
+      } else {
+        setUserId(null);
+        setProfileId(null);
+        setScreen("splash");
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // ── Load profile from Supabase ──
