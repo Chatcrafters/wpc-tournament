@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "./lib/supabase";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const TOURNAMENT = { name: "Vienna Pickleball Open", date: "14.–16. Juni 2025", location: "Sportpark Liesing, Wien", deadline: "1. Juni 2025", year: 2025, appUrl: "https://5kzsnz.csb.app" };
@@ -16,27 +17,6 @@ const DISCIPLINES = [
   { key: "singles", label: "Einzel", icon: "👤", hasPartner: false },
   { key: "doubles", label: "Doppel", icon: "👥", hasPartner: true },
   { key: "mixed", label: "Mixed", icon: "🤝", hasPartner: true },
-];
-const MOCK_DUPR = {
-  "12345": { name: "Max Mustermann", rating: 4.32, verified: true },
-  "67890": { name: "Anna Schmidt", rating: 3.71, verified: true },
-  "11111": { name: "Klaus Weber", rating: 5.12, verified: true },
-  "99999": { name: "Julia Bauer", rating: 4.89, verified: true },
-};
-const MOCK_BOARD = [
-  { id: 1, name: "Thomas W.", city: "Wien", level: "4.5", age: "50+", discipline: "doubles", phone: "+43 664 111 222", duprRating: 4.41, duprVerified: true },
-  { id: 2, name: "Sarah K.", city: "Graz", level: "3.5", age: "19+", discipline: "mixed", phone: "+43 664 333 444", duprRating: 3.55, duprVerified: true },
-  { id: 3, name: "Peter M.", city: "Linz", level: "5.0", age: "60+", discipline: "doubles", phone: "+43 664 555 666", duprRating: null, duprVerified: false },
-  { id: 4, name: "Julia B.", city: "Wien", level: "4.5", age: "19+", discipline: "mixed", phone: "+43 664 777 888", duprRating: 4.89, duprVerified: true },
-  { id: 5, name: "Hans R.", city: "Salzburg", level: "3.5", age: "50+", discipline: "doubles", phone: "+43 664 999 000", duprRating: 3.22, duprVerified: true },
-];
-const MOCK_ADMIN = [
-  { id: 1, name: "Max Mustermann", phone: "+43 664 100 200", discipline: "singles", level: "4.5", age: "19+", paid: true, paidForPartner: false, partnerName: null, partnerPaid: null, duprRating: 4.32 },
-  { id: 2, name: "Anna Schmidt", phone: "+43 664 300 400", discipline: "doubles", level: "3.5", age: "50+", paid: true, paidForPartner: false, partnerName: "Lisa H.", partnerPaid: false, duprRating: 3.71 },
-  { id: 3, name: "Klaus Weber", phone: "+43 664 500 600", discipline: "mixed", level: "5.0", age: "60+", paid: true, paidForPartner: true, partnerName: "Maria L.", partnerPaid: true, duprRating: 5.12 },
-  { id: 4, name: "Sophie M.", phone: "+43 664 700 800", discipline: "doubles", level: "4.5", age: "19+", paid: false, paidForPartner: false, partnerName: "Emma R.", partnerPaid: false, duprRating: null },
-  { id: 5, name: "Robert K.", phone: "+43 664 900 100", discipline: "singles", level: "3.5", age: "50+", paid: true, paidForPartner: false, partnerName: null, partnerPaid: null, duprRating: 3.88 },
-  { id: 6, name: "Petra N.", phone: "+43 664 200 300", discipline: "mixed", level: "4.5", age: "50+", paid: true, paidForPartner: false, partnerName: "Franz D.", partnerPaid: false, duprRating: 4.55 },
 ];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -90,6 +70,9 @@ export default function App() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [userId, setUserId] = useState(null);
   const [profile, setProfile] = useState({ firstName: "", lastName: "", email: "", city: "", duprId: "", dob: "" });
   const [duprData, setDuprData] = useState(null);
   const [duprLoading, setDuprLoading] = useState(false);
@@ -99,22 +82,259 @@ export default function App() {
   const [partnerMode, setPartnerMode] = useState(null);
   const [partnerPhone, setPartnerPhone] = useState("");
   const [payOption, setPayOption] = useState(null);
-  const [adminRegs, setAdminRegs] = useState(MOCK_ADMIN);
-  const [board, setBoard] = useState(MOCK_BOARD);
+  const [adminRegs, setAdminRegs] = useState([]);
+  const [board, setBoard] = useState([]);
   const [fLevel, setFLevel] = useState(null);
   const [fAge, setFAge] = useState(null);
   const [levelWarn, setLevelWarn] = useState(false);
   const [sentRequests, setSentRequests] = useState([]);
   const [requestMsg, setRequestMsg] = useState("");
   const [requestingId, setRequestingId] = useState(null);
-  const [incomingRequests, setIncomingRequests] = useState([
-    { id: 101, fromName: "Thomas W.", fromCity: "Wien", fromPhone: "+43 664 111 222", fromDupr: 4.41, fromVerified: true, level: "4.5", age: "50+", discipline: "doubles", message: "Hallo! Würde gern mit dir spielen. Bin flexibel was Termine betrifft 🏓", timestamp: "vor 2h", status: "pending" },
-    { id: 102, fromName: "Julia B.", fromCity: "Wien", fromPhone: "+43 664 777 888", fromDupr: 4.89, fromVerified: true, level: "4.5", age: "19+", discipline: "mixed", message: "Hi! Suche noch einen Mixed-Partner für das Turnier. Interesse?", timestamp: "vor 5h", status: "pending" },
-  ]);
-  // Invite friend state
-  const [inviteMode, setInviteMode] = useState(null); // "general" | "category"
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [inviteMode, setInviteMode] = useState(null);
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteCategory, setInviteCategory] = useState({ discipline: null, level: null, age: null });
+
+  // ── Check existing session on mount ──
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+        setPhone(session.user.phone || "");
+        loadProfile(session.user.id);
+      }
+    });
+  }, []);
+
+  // ── Load profile from Supabase ──
+  const loadProfile = async (uid) => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
+    if (data) {
+      setProfile({
+        firstName: data.first_name || "",
+        lastName: data.last_name || "",
+        email: data.email || "",
+        city: data.city || "",
+        duprId: data.dupr_id || "",
+        dob: data.dob || "",
+      });
+      if (data.dupr_rating) {
+        setDuprData({ rating: parseFloat(data.dupr_rating), verified: data.dupr_verified });
+      }
+      await loadRegistrations(uid);
+      await loadIncomingRequests(uid);
+      setScreen("dashboard");
+    } else {
+      setScreen("profile");
+    }
+  };
+
+  // ── Load registrations from Supabase ──
+  const loadRegistrations = async (uid) => {
+    const { data } = await supabase.from("registrations").select("*").eq("player_id", uid);
+    if (data) {
+      setRegistrations(data.map(r => ({
+        id: r.id,
+        discipline: r.discipline,
+        level: r.level,
+        age: r.age_group,
+        partnerPhone: r.partner_phone,
+        lookingForPartner: r.looking_for_partner,
+        paid: r.paid,
+        paidForPartner: r.paid_for_partner,
+        payOption: r.pay_option,
+      })));
+    }
+  };
+
+  // ── Load partner board from Supabase ──
+  const loadBoard = async () => {
+    const { data } = await supabase
+      .from("registrations")
+      .select("*, profiles(*)")
+      .eq("looking_for_partner", true);
+    if (data) {
+      setBoard(data.map(r => ({
+        id: r.id,
+        name: `${r.profiles.first_name} ${r.profiles.last_name}`,
+        city: r.profiles.city || "—",
+        level: r.level,
+        age: r.age_group,
+        discipline: r.discipline,
+        phone: r.profiles.phone,
+        duprRating: r.profiles.dupr_rating ? parseFloat(r.profiles.dupr_rating) : null,
+        duprVerified: r.profiles.dupr_verified,
+        playerId: r.player_id,
+      })));
+    }
+  };
+
+  // ── Load incoming partner requests ──
+  const loadIncomingRequests = async (uid) => {
+    const { data } = await supabase
+      .from("partner_requests")
+      .select("*, from_player:profiles!partner_requests_from_player_id_fkey(*)")
+      .eq("to_player_id", uid);
+    if (data) {
+      setIncomingRequests(data.map(r => ({
+        id: r.id,
+        fromName: `${r.from_player.first_name} ${r.from_player.last_name}`,
+        fromCity: r.from_player.city || "—",
+        fromPhone: r.from_player.phone,
+        fromDupr: r.from_player.dupr_rating ? parseFloat(r.from_player.dupr_rating) : null,
+        fromVerified: r.from_player.dupr_verified,
+        level: r.level,
+        age: r.age_group,
+        discipline: r.discipline,
+        message: r.message || "",
+        status: r.status,
+        fromPlayerId: r.from_player_id,
+      })));
+    }
+  };
+
+  // ── Load admin data ──
+  const loadAdminData = async () => {
+    const { data } = await supabase
+      .from("registrations")
+      .select("*, profiles(*)");
+    if (data) {
+      setAdminRegs(data.map(r => ({
+        id: r.id,
+        name: `${r.profiles.first_name} ${r.profiles.last_name}`,
+        phone: r.profiles.phone,
+        discipline: r.discipline,
+        level: r.level,
+        age: r.age_group,
+        paid: r.paid,
+        paidForPartner: r.paid_for_partner,
+        partnerName: r.partner_phone || null,
+        partnerPaid: false,
+        duprRating: r.profiles.dupr_rating ? parseFloat(r.profiles.dupr_rating) : null,
+      })));
+    }
+  };
+
+  // ── OTP: Send code via Supabase Auth ──
+  const sendOtp = async () => {
+    setOtpLoading(true);
+    setAuthError("");
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, "");
+    const { error } = await supabase.auth.signInWithOtp({ phone: cleanPhone });
+    setOtpLoading(false);
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setOtpSent(true);
+    }
+  };
+
+  // ── OTP: Verify code ──
+  const verifyOtp = async () => {
+    setOtpLoading(true);
+    setAuthError("");
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, "");
+    const { data, error } = await supabase.auth.verifyOtp({ phone: cleanPhone, token: otp, type: "sms" });
+    setOtpLoading(false);
+    if (error) {
+      setAuthError(error.message);
+    } else if (data.user) {
+      setUserId(data.user.id);
+      await loadProfile(data.user.id);
+    }
+  };
+
+  // ── Save profile to Supabase ──
+  const saveProfile = async () => {
+    if (!profile.firstName || !profile.lastName || !profile.dob || playerAge < 19) return;
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, "");
+    const { error } = await supabase.from("profiles").upsert({
+      id: userId,
+      phone: cleanPhone,
+      first_name: profile.firstName,
+      last_name: profile.lastName,
+      email: profile.email || null,
+      city: profile.city || null,
+      dob: profile.dob,
+      dupr_id: profile.duprId || null,
+      dupr_rating: duprData?.rating || null,
+      dupr_verified: !!duprData?.verified,
+    });
+    if (!error) {
+      setScreen("dashboard");
+    }
+  };
+
+  // ── Save registration to Supabase ──
+  const saveRegistration = async (regData) => {
+    const { data, error } = await supabase.from("registrations").insert({
+      player_id: userId,
+      discipline: regData.discipline,
+      level: regData.level,
+      age_group: regData.age,
+      partner_phone: regData.partnerPhone || null,
+      looking_for_partner: regData.lookingForPartner || false,
+      paid: regData.paid || false,
+      paid_for_partner: regData.paidForPartner || false,
+      pay_option: regData.payOption || null,
+    }).select().single();
+    return { data, error };
+  };
+
+  // ── Send partner request to Supabase ──
+  const sendPartnerRequest = async (toPlayerId, boardEntry) => {
+    await supabase.from("partner_requests").insert({
+      from_player_id: userId,
+      to_player_id: toPlayerId,
+      discipline: boardEntry.discipline,
+      level: boardEntry.level,
+      age_group: boardEntry.age,
+      message: requestMsg || "Würde gern mit dir spielen! 🏓",
+    });
+    setSentRequests([...sentRequests, boardEntry.id]);
+    setRequestingId(null);
+    setRequestMsg("");
+  };
+
+  // ── Accept partner request ──
+  const acceptRequest = async (req) => {
+    await supabase.from("partner_requests").update({ status: "accepted" }).eq("id", req.id);
+    // Reject all other pending requests
+    const otherPending = incomingRequests.filter(r => r.id !== req.id && r.status === "pending");
+    for (const other of otherPending) {
+      await supabase.from("partner_requests").update({ status: "rejected" }).eq("id", other.id);
+    }
+    setIncomingRequests(incomingRequests.map(r =>
+      r.id === req.id ? { ...r, status: "accepted" } : r.status === "pending" ? { ...r, status: "rejected" } : r
+    ));
+    setReg({ discipline: req.discipline, level: req.level, age: req.age });
+    setPartnerMode("have");
+    setPartnerPhone(req.fromPhone);
+    setPayOption("self");
+    setScreen("pairingConfirmed");
+  };
+
+  // ── Reject partner request ──
+  const rejectRequest = async (reqId) => {
+    await supabase.from("partner_requests").update({ status: "rejected" }).eq("id", reqId);
+    setIncomingRequests(incomingRequests.map(r => r.id === reqId ? { ...r, status: "rejected" } : r));
+  };
+
+  // ── Admin: mark as paid ──
+  const markPaid = async (regId) => {
+    await supabase.from("registrations").update({ paid: true }).eq("id", regId);
+    setAdminRegs(adminRegs.map(x => x.id === regId ? { ...x, paid: true } : x));
+  };
+
+  // ── DUPR lookup (still mock — real API needs backend proxy) ──
+  const fetchDupr = (id) => {
+    setDuprLoading(true);
+    // TODO: Replace with real DUPR API call via edge function
+    setTimeout(() => {
+      setDuprData(null);
+      setDuprLoading(false);
+    }, 1200);
+  };
 
   const needsPartner = (d) => d === "doubles" || d === "mixed";
   const hasAnyPaid = registrations.some(r => r.paid);
@@ -123,11 +343,6 @@ export default function App() {
   const eligibleGroups = AGE_GROUPS.filter(ag => playerAge !== null && playerAge >= parseInt(ag.key));
   const pendingCount = incomingRequests.filter(r => r.status === "pending").length;
 
-  const fetchDupr = (id) => {
-    setDuprLoading(true);
-    setTimeout(() => { setDuprData(MOCK_DUPR[id] || null); setDuprLoading(false); }, 1200);
-  };
-
   const pendingPayable = registrations.filter(r => r.pending && !r.lookingForPartner);
   const pendingSearch = registrations.filter(r => r.pending && r.lookingForPartner);
   const currentIsSearch = partnerMode === "search";
@@ -135,11 +350,20 @@ export default function App() {
   const pricePerReg = payOption === "both" ? 70 : payOption === "partner" ? 0 : 35;
   const totalToday = payableCount * pricePerReg;
 
-  const finish = () => {
-    const newReg = { ...reg, id: Date.now(), partnerPhone: partnerMode === "have" ? partnerPhone : null, lookingForPartner: partnerMode === "search", paid: payOption !== "partner" && partnerMode !== "search", paidForPartner: payOption === "both", payOption };
-    setRegistrations([...registrations, newReg]);
-    if (partnerMode === "search") {
-      setBoard([...board, { id: Date.now() + 1, name: profile.firstName + " " + profile.lastName, city: profile.city || "Wien", level: reg.level, age: reg.age, discipline: reg.discipline, phone, duprRating: duprData?.rating || null, duprVerified: !!duprData }]);
+  const finish = async () => {
+    const newReg = {
+      discipline: reg.discipline,
+      level: reg.level,
+      age: reg.age,
+      partnerPhone: partnerMode === "have" ? partnerPhone : null,
+      lookingForPartner: partnerMode === "search",
+      paid: payOption !== "partner" && partnerMode !== "search",
+      paidForPartner: payOption === "both",
+      payOption,
+    };
+    const { data } = await saveRegistration(newReg);
+    if (data) {
+      setRegistrations([...registrations, { ...newReg, id: data.id }]);
     }
     setScreen("success");
   };
@@ -169,7 +393,7 @@ export default function App() {
         </div>
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
           <button style={ST.btn} onClick={() => setScreen("phone")}>Als Spieler anmelden</button>
-          <button style={ST.ghost} onClick={() => setScreen("admin")}>Organisatoren-Ansicht</button>
+          <button style={ST.ghost} onClick={() => { loadAdminData(); setScreen("admin"); }}>Organisatoren-Ansicht</button>
           <div style={{ textAlign: "center", color: "#3A4A6A", fontSize: 13, marginTop: 4 }}>Keine App nötig · Läuft im Browser</div>
         </div>
       </div>
@@ -185,25 +409,26 @@ export default function App() {
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}>Deine<br />Handynummer 📱</div>
-        <div style={{ color: "#6B7BA4", fontSize: 14, lineHeight: 1.6 }}>Deine Nummer ist dein Login. Du bekommst einen Code per WhatsApp.</div>
+        <div style={{ color: "#6B7BA4", fontSize: 14, lineHeight: 1.6 }}>Deine Nummer ist dein Login. Du bekommst einen Code per SMS.</div>
         <div>
           <label style={ST.lbl}>Telefonnummer</label>
           <input style={ST.inp} type="tel" placeholder="+43 664 123 456 7" value={phone} onChange={e => setPhone(e.target.value)} />
         </div>
         {otpSent && (
           <div>
-            <label style={ST.lbl}>Code aus WhatsApp</label>
+            <label style={ST.lbl}>Code aus SMS</label>
             <input style={{ ...ST.inp, letterSpacing: 8, fontSize: 22, textAlign: "center" }} type="text" placeholder="· · · · · ·" maxLength={6} value={otp} onChange={e => setOtp(e.target.value)} />
             <div style={{ fontSize: 12, color: "#6B7BA4", marginTop: 8, textAlign: "center" }}>Code gesendet an {phone}</div>
           </div>
         )}
-        {!otpSent && <div style={{ background: "#0D1F33", borderRadius: 14, padding: 16, display: "flex", gap: 12 }}><span style={{ fontSize: 20 }}>💬</span><div style={{ fontSize: 13, color: "#6B7BA4", lineHeight: 1.5 }}>6-stelliger Code per WhatsApp oder SMS.</div></div>}
+        {authError && <div style={{ background: "rgba(239,68,68,0.1)", borderRadius: 12, padding: 14, fontSize: 13, color: "#EF4444" }}>⚠️ {authError}</div>}
+        {!otpSent && <div style={{ background: "#0D1F33", borderRadius: 14, padding: 16, display: "flex", gap: 12 }}><span style={{ fontSize: 20 }}>📱</span><div style={{ fontSize: 13, color: "#6B7BA4", lineHeight: 1.5 }}>6-stelliger Code per SMS an deine Nummer.</div></div>}
       </div>
       <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
         {!otpSent
-          ? <button style={{ ...ST.btn, opacity: phone.length < 8 ? 0.4 : 1 }} onClick={() => phone.length >= 8 && setOtpSent(true)}>Code senden →</button>
-          : <button style={{ ...ST.btn, opacity: otp.length < 4 ? 0.4 : 1 }} onClick={() => otp.length >= 4 && setScreen("profile")}>Bestätigen →</button>}
-        {otpSent && <button style={ST.ghost} onClick={() => setOtpSent(false)}>Andere Nummer</button>}
+          ? <button style={{ ...ST.btn, opacity: phone.length < 8 || otpLoading ? 0.4 : 1 }} onClick={() => phone.length >= 8 && !otpLoading && sendOtp()}>{otpLoading ? "Sende..." : "Code senden →"}</button>
+          : <button style={{ ...ST.btn, opacity: otp.length < 4 || otpLoading ? 0.4 : 1 }} onClick={() => otp.length >= 4 && !otpLoading && verifyOtp()}>{otpLoading ? "Prüfe..." : "Bestätigen →"}</button>}
+        {otpSent && <button style={ST.ghost} onClick={() => { setOtpSent(false); setAuthError(""); }}>Andere Nummer</button>}
       </div>
     </div></div>
   );
@@ -294,7 +519,7 @@ export default function App() {
       </div>
       <div style={{ paddingTop: 20 }}>
         <button style={{ ...ST.btn, opacity: (!profile.firstName || !profile.lastName || !profile.dob || (playerAge !== null && playerAge < 19)) ? 0.4 : 1 }}
-          onClick={() => profile.firstName && profile.lastName && profile.dob && playerAge >= 19 && setScreen("dashboard")}>
+          onClick={() => profile.firstName && profile.lastName && profile.dob && playerAge >= 19 && saveProfile()}>
           Profil speichern →
         </button>
         {!profile.dob && profile.firstName && profile.lastName && <div style={{ marginTop: 10, textAlign: "center", fontSize: 13, color: "#F59E0B" }}>Bitte Geburtsdatum eingeben.</div>}
@@ -330,7 +555,7 @@ export default function App() {
       {/* Quick actions */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         <button style={{ flex: 1, background: "#141A2E", border: "1.5px solid #1E2845", borderRadius: 16, padding: 14, cursor: "pointer", color: "#F0F4FF", fontSize: 13, fontWeight: 600 }}
-          onClick={() => { setFLevel(null); setFAge(null); setScreen("board"); }}>🔍 Partnerbörse</button>
+          onClick={() => { setFLevel(null); setFAge(null); loadBoard(); setScreen("board"); }}>🔍 Partnerbörse</button>
         <button style={{ flex: 1, background: "#141A2E", border: "1.5px solid #1E2845", borderRadius: 16, padding: 14, cursor: "pointer", color: "#F0F4FF", fontSize: 13, fontWeight: 600 }}
           onClick={() => setScreen("profile")}>⚡ DUPR: {duprData ? duprData.rating.toFixed(2) : "—"}</button>
       </div>
@@ -673,11 +898,7 @@ export default function App() {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <textarea style={{ ...ST.inp, fontSize: 14, resize: "none", height: 80 }} placeholder="Kurze Nachricht... (optional)" value={requestMsg} onChange={e => setRequestMsg(e.target.value)} />
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button style={{ ...ST.btnG, flex: 2, padding: 12 }} onClick={() => {
-                    setIncomingRequests([...incomingRequests, { id: Date.now(), fromName: profile.firstName + " " + profile.lastName, fromCity: profile.city || "Wien", fromPhone: phone, fromDupr: duprData?.rating || null, fromVerified: !!duprData, level: p.level, age: p.age, discipline: p.discipline, message: requestMsg || "Würde gern mit dir spielen! 🏓", timestamp: "gerade eben", status: "pending", toId: p.id }]);
-                    setSentRequests([...sentRequests, p.id]);
-                    setRequestingId(null); setRequestMsg("");
-                  }}>📨 Anfrage senden</button>
+                  <button style={{ ...ST.btnG, flex: 2, padding: 12 }} onClick={() => sendPartnerRequest(p.playerId, p)}>📨 Anfrage senden</button>
                   <button style={{ flex: 1, background: "transparent", border: "1.5px solid #1E2845", borderRadius: 14, padding: 12, cursor: "pointer", color: "#6B7BA4", fontSize: 14 }} onClick={() => { setRequestingId(null); setRequestMsg(""); }}>Abbruch</button>
                 </div>
               </div>
@@ -711,7 +932,7 @@ export default function App() {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 48, height: 48, borderRadius: "50%", background: col + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{d?.icon}</div>
-                  <div><div style={{ fontWeight: 700, fontSize: 16 }}>{req.fromName}</div><div style={{ fontSize: 12, color: "#6B7BA4" }}>📍 {req.fromCity} · {req.timestamp}</div></div>
+                  <div><div style={{ fontWeight: 700, fontSize: 16 }}>{req.fromName}</div><div style={{ fontSize: 12, color: "#6B7BA4" }}>📍 {req.fromCity}</div></div>
                 </div>
                 <DuprBadge rating={req.fromDupr} verified={req.fromVerified} size="small" />
               </div>
@@ -722,14 +943,8 @@ export default function App() {
               </div>
               <div style={{ background: "#0D1F33", borderRadius: 12, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#D1E8FF", lineHeight: 1.6, fontStyle: "italic" }}>💬 "{req.message}"</div>
               <div style={{ display: "flex", gap: 10 }}>
-                <button style={{ ...ST.btnG, flex: 2, padding: 14 }} onClick={() => {
-                  setIncomingRequests(incomingRequests.map(r => r.id === req.id ? { ...r, status: "accepted" } : r.status === "pending" ? { ...r, status: "rejected" } : r));
-                  setBoard(board.filter(p => p.phone !== phone));
-                  setReg({ discipline: req.discipline, level: req.level, age: req.age });
-                  setPartnerMode("have"); setPartnerPhone(req.fromPhone); setPayOption("self");
-                  setScreen("pairingConfirmed");
-                }}>✅ Annehmen</button>
-                <button style={{ ...ST.btnR, flex: 1 }} onClick={() => setIncomingRequests(incomingRequests.map(r => r.id === req.id ? { ...r, status: "rejected" } : r))}>✗ Ablehnen</button>
+                <button style={{ ...ST.btnG, flex: 2, padding: 14 }} onClick={() => acceptRequest(req)}>✅ Annehmen</button>
+                <button style={{ ...ST.btnR, flex: 1 }} onClick={() => rejectRequest(req.id)}>✗ Ablehnen</button>
               </div>
             </div>
           );
@@ -959,7 +1174,7 @@ export default function App() {
         <button style={{ ...ST.back, color: "#F59E0B" }} onClick={() => setScreen("splash")}>✕</button>
       </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-        {[{ label: "Gesamt", value: adminRegs.length, col: "#F0F4FF" }, { label: "Bezahlt", value: adminRegs.filter(r => r.paid).length, col: "#4ADE80" }, { label: "Offen", value: adminRegs.filter(r => !r.paid || (r.partnerName && !r.partnerPaid && !r.paidForPartner)).length, col: "#F97316" }].map((stat, i) => (
+        {[{ label: "Gesamt", value: adminRegs.length, col: "#F0F4FF" }, { label: "Bezahlt", value: adminRegs.filter(r => r.paid).length, col: "#4ADE80" }, { label: "Offen", value: adminRegs.filter(r => !r.paid).length, col: "#F97316" }].map((stat, i) => (
           <div key={i} style={{ flex: 1, background: "#141A2E", borderRadius: 16, padding: 14, textAlign: "center", border: "1.5px solid #1E2845" }}>
             <div style={{ fontSize: 26, fontWeight: 800, color: stat.col }}>{stat.value}</div>
             <div style={{ fontSize: 11, color: "#6B7BA4", marginTop: 2 }}>{stat.label}</div>
@@ -967,12 +1182,12 @@ export default function App() {
         ))}
       </div>
       <div style={ST.lbl}>Alle Anmeldungen</div>
+      {adminRegs.length === 0 && <div style={{ ...ST.card, textAlign: "center", padding: 32, color: "#3A4A6A" }}><div style={{ fontSize: 36, marginBottom: 8 }}>📋</div><div>Noch keine Anmeldungen</div></div>}
       {adminRegs.map(r => {
         const d = DISCIPLINES.find(x => x.key === r.discipline);
         const col = lc(r.level);
-        const issue = !r.paid || (r.partnerName && !r.partnerPaid && !r.paidForPartner);
         return (
-          <div key={r.id} style={{ ...ST.card, borderColor: issue ? "#EF444433" : "#1E2845" }}>
+          <div key={r.id} style={{ ...ST.card, borderColor: !r.paid ? "#EF444433" : "#1E2845" }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>{r.name}</div>
@@ -990,11 +1205,10 @@ export default function App() {
             </div>
             {r.partnerName && <div style={{ background: "#0D1F33", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ fontSize: 13 }}><span style={{ color: "#6B7BA4" }}>Partner: </span><span style={{ fontWeight: 600 }}>{r.partnerName}</span></div>
-              <span style={{ fontSize: 12, color: r.paidForPartner ? "#4ADE80" : r.partnerPaid ? "#4ADE80" : "#F59E0B", fontWeight: 700 }}>{r.paidForPartner ? "✅ Übernommen" : r.partnerPaid ? "✅ Bezahlt" : "⏳ Ausstehend"}</span>
+              <span style={{ fontSize: 12, color: r.paidForPartner ? "#4ADE80" : "#F59E0B", fontWeight: 700 }}>{r.paidForPartner ? "✅ Übernommen" : "⏳ Ausstehend"}</span>
             </div>}
             <div style={{ display: "flex", gap: 8 }}>
-              {!r.paid && <button style={{ ...ST.btn, padding: 10, fontSize: 13 }} onClick={() => setAdminRegs(adminRegs.map(x => x.id === r.id ? { ...x, paid: true } : x))}>💳 Als bezahlt markieren</button>}
-              {r.partnerName && !r.partnerPaid && !r.paidForPartner && r.paid && <button style={{ ...ST.btnG, padding: 10, fontSize: 13 }} onClick={() => setAdminRegs(adminRegs.map(x => x.id === r.id ? { ...x, partnerPaid: true } : x))}>✅ Partner bezahlt</button>}
+              {!r.paid && <button style={{ ...ST.btn, padding: 10, fontSize: 13 }} onClick={() => markPaid(r.id)}>💳 Als bezahlt markieren</button>}
             </div>
           </div>
         );
