@@ -118,6 +118,24 @@ export default function App() {
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteCategory, setInviteCategory] = useState({ discipline: null, level: null, age: null });
 
+  // ── Handle Stripe return URL ──
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get("payment");
+    const regId = params.get("reg_id");
+    if (payment === "success" && regId) {
+      console.log("[Stripe] Payment success for reg:", regId);
+      supabase.from("registrations").update({ paid: true }).eq("id", regId).then(({ error }) => {
+        console.log("[Stripe] Mark paid error:", error);
+      });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (payment === "cancelled") {
+      console.log("[Stripe] Payment cancelled");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   // ── Check existing session on mount ──
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -453,15 +471,53 @@ export default function App() {
       age: reg.age,
       partnerPhone: partnerMode === "have" ? partnerPhone : null,
       lookingForPartner: partnerMode === "search",
-      paid: payOption !== "partner" && partnerMode !== "search",
-      paidForPartner: payOption === "both",
+      paid: false,
+      paidForPartner: false,
       payOption,
     };
     const { data } = await saveRegistration(newReg);
     if (data) {
       await loadRegistrations(profileId);
+      return data;
     }
-    setScreenTracked("success");
+    return null;
+  };
+
+  // ── Stripe Checkout ──
+  const handlePayment = async () => {
+    const regData = await finish();
+    if (!regData) return;
+
+    // Free registration (partner search) — skip payment
+    if (currentIsSearch || totalToday <= 0) {
+      setScreenTracked("success");
+      return;
+    }
+
+    // Redirect to Stripe Checkout
+    try {
+      console.log("[Stripe] Creating checkout session, amount:", totalToday);
+      const res = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: totalToday,
+          registrationId: regData.id,
+          playerName: `${profile.firstName} ${profile.lastName}`,
+        }),
+      });
+      const { url, error } = await res.json();
+      console.log("[Stripe] Checkout URL:", url, "Error:", error);
+      if (url) {
+        window.location.href = url;
+      } else {
+        console.error("[Stripe] No URL returned:", error);
+        setScreenTracked("success");
+      }
+    } catch (err) {
+      console.error("[Stripe] Fetch error:", err);
+      setScreenTracked("success");
+    }
   };
 
   // WhatsApp URL builder
@@ -1143,13 +1199,13 @@ export default function App() {
 
         {(payOption === "self" || payOption === "both") && payableCount > 0 && (
           <div style={{ ...ST.card, borderColor: "#2A4A6C" }}>
-            <div style={ST.lbl}>Zahlungsmethode</div>
-            {[{ l: "Kreditkarte", d: "Visa •••• 4242", a: true }, { l: "PayPal", d: "max@beispiel.at", a: false }, { l: "Klarna", d: "Später zahlen", a: false }].map((m, i) => (
-              <div key={i} style={{ background: m.a ? "#0D2137" : "#0D1F33", borderRadius: 12, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, border: m.a ? "1.5px solid #2A4A6C" : "none" }}>
-                <span style={{ fontSize: 14 }}>{m.l}{m.a ? "" : ""}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: m.a ? "#F59E0B" : "#6B7BA4" }}>{m.d}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <CreditCard size={20} color="#60A5FA" />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>Sichere Zahlung via Stripe</div>
+                <div style={{ fontSize: 12, color: "#6B7BA4", marginTop: 2 }}>Kreditkarte, Klarna, Giropay u.v.m.</div>
               </div>
-            ))}
+            </div>
           </div>
         )}
 
@@ -1182,9 +1238,7 @@ export default function App() {
         {/* CTA */}
         <button style={{ ...ST.btn, opacity: (!payOption && !currentIsSearch) ? 0.4 : 1 }} onClick={() => {
           if (payOption || currentIsSearch) {
-            const updatedRegs = registrations.map(r => r.pending ? { ...r, paid: !r.lookingForPartner && payOption !== "partner", pending: false } : r);
-            setRegistrations(updatedRegs);
-            finish();
+            handlePayment();
           }
         }}>
           {(() => {
