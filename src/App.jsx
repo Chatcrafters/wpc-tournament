@@ -148,8 +148,10 @@ export default function App() {
   };
 
   // ── Load registrations from Supabase ──
-  const loadRegistrations = async (uid) => {
-    const { data } = await supabase.from("registrations").select("*").eq("player_id", uid);
+  const loadRegistrations = async (pid) => {
+    console.log("[Registrations] Loading for profileId:", pid);
+    const { data, error } = await supabase.from("registrations").select("*").eq("player_id", pid);
+    console.log("[Registrations] Data:", data, "Error:", error);
     if (data) {
       setRegistrations(data.map(r => ({
         id: r.id,
@@ -167,10 +169,12 @@ export default function App() {
 
   // ── Load partner board from Supabase ──
   const loadBoard = async () => {
-    const { data } = await supabase
+    console.log("[Board] Loading partner board...");
+    const { data, error } = await supabase
       .from("registrations")
-      .select("*, profiles(*)")
+      .select("*, profiles!registrations_player_id_fkey(*)")
       .eq("looking_for_partner", true);
+    console.log("[Board] Data:", data, "Error:", error);
     if (data) {
       setBoard(data.map(r => ({
         id: r.id,
@@ -188,11 +192,13 @@ export default function App() {
   };
 
   // ── Load incoming partner requests ──
-  const loadIncomingRequests = async (uid) => {
-    const { data } = await supabase
+  const loadIncomingRequests = async (pid) => {
+    console.log("[Requests] Loading incoming for profileId:", pid);
+    const { data, error } = await supabase
       .from("partner_requests")
       .select("*, from_player:profiles!partner_requests_from_player_id_fkey(*)")
-      .eq("to_player_id", uid);
+      .eq("to_player_id", pid);
+    console.log("[Requests] Data:", data, "Error:", error);
     if (data) {
       setIncomingRequests(data.map(r => ({
         id: r.id,
@@ -213,9 +219,11 @@ export default function App() {
 
   // ── Load admin data ──
   const loadAdminData = async () => {
-    const { data } = await supabase
+    console.log("[Admin] Loading all registrations...");
+    const { data, error } = await supabase
       .from("registrations")
-      .select("*, profiles(*)");
+      .select("*, profiles!registrations_player_id_fkey(*)");
+    console.log("[Admin] Data:", data, "Error:", error);
     if (data) {
       setAdminRegs(data.map(r => ({
         id: r.id,
@@ -311,6 +319,7 @@ export default function App() {
 
   // ── Save registration to Supabase ──
   const saveRegistration = async (regData) => {
+    console.log("[Registration] Saving:", { profileId, ...regData });
     const { data, error } = await supabase.from("registrations").insert({
       player_id: profileId,
       discipline: regData.discipline,
@@ -322,19 +331,22 @@ export default function App() {
       paid_for_partner: regData.paidForPartner || false,
       pay_option: regData.payOption || null,
     }).select().single();
+    console.log("[Registration] Result:", data, "Error:", error);
     return { data, error };
   };
 
   // ── Send partner request to Supabase ──
   const sendPartnerRequest = async (toPlayerId, boardEntry) => {
-    await supabase.from("partner_requests").insert({
+    console.log("[PartnerRequest] Sending from:", profileId, "to:", toPlayerId);
+    const { data, error } = await supabase.from("partner_requests").insert({
       from_player_id: profileId,
       to_player_id: toPlayerId,
       discipline: boardEntry.discipline,
       level: boardEntry.level,
       age_group: boardEntry.age,
       message: requestMsg || "Würde gern mit dir spielen! 🏓",
-    });
+    }).select().single();
+    console.log("[PartnerRequest] Result:", data, "Error:", error);
     setSentRequests([...sentRequests, boardEntry.id]);
     setRequestingId(null);
     setRequestMsg("");
@@ -342,11 +354,14 @@ export default function App() {
 
   // ── Accept partner request ──
   const acceptRequest = async (req) => {
-    await supabase.from("partner_requests").update({ status: "accepted" }).eq("id", req.id);
+    console.log("[Request] Accepting:", req.id);
+    const { error } = await supabase.from("partner_requests").update({ status: "accepted" }).eq("id", req.id);
+    console.log("[Request] Accept result, error:", error);
     // Reject all other pending requests
     const otherPending = incomingRequests.filter(r => r.id !== req.id && r.status === "pending");
     for (const other of otherPending) {
-      await supabase.from("partner_requests").update({ status: "rejected" }).eq("id", other.id);
+      const { error: rejErr } = await supabase.from("partner_requests").update({ status: "rejected" }).eq("id", other.id);
+      console.log("[Request] Auto-reject", other.id, "error:", rejErr);
     }
     setIncomingRequests(incomingRequests.map(r =>
       r.id === req.id ? { ...r, status: "accepted" } : r.status === "pending" ? { ...r, status: "rejected" } : r
@@ -360,13 +375,17 @@ export default function App() {
 
   // ── Reject partner request ──
   const rejectRequest = async (reqId) => {
-    await supabase.from("partner_requests").update({ status: "rejected" }).eq("id", reqId);
+    console.log("[Request] Rejecting:", reqId);
+    const { error } = await supabase.from("partner_requests").update({ status: "rejected" }).eq("id", reqId);
+    console.log("[Request] Reject result, error:", error);
     setIncomingRequests(incomingRequests.map(r => r.id === reqId ? { ...r, status: "rejected" } : r));
   };
 
   // ── Admin: mark as paid ──
   const markPaid = async (regId) => {
-    await supabase.from("registrations").update({ paid: true }).eq("id", regId);
+    console.log("[Admin] Marking paid:", regId);
+    const { error } = await supabase.from("registrations").update({ paid: true }).eq("id", regId);
+    console.log("[Admin] Mark paid result, error:", error);
     setAdminRegs(adminRegs.map(x => x.id === regId ? { ...x, paid: true } : x));
   };
 
