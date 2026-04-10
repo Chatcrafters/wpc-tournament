@@ -539,16 +539,24 @@ export default function App() {
 
   // ── Stripe Checkout ──
   const handlePayment = async () => {
-    const regData = await finish();
-    if (!regData) return;
-
-    // Free registration (partner search) — skip payment
-    if (currentIsSearch || totalToday <= 0) {
-      setScreenTracked("success");
+    // 1. Partner search → save & go to success (free)
+    if (currentIsSearch) {
+      const regData = await finish();
+      if (regData) setScreenTracked("success");
       return;
     }
 
-    // Redirect to Stripe Checkout
+    // 2. "Partner zahlt" → save & go to success (no charge)
+    if (payOption === "partner") {
+      const regData = await finish();
+      if (regData) setScreenTracked("success");
+      return;
+    }
+
+    // 3. "self" or "both" → save, then Stripe Checkout
+    const regData = await finish();
+    if (!regData) return;
+
     try {
       const apiUrl = import.meta.env.DEV
         ? "http://localhost:3002/api/create-checkout-session"
