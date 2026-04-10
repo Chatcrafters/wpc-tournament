@@ -39,5 +39,5 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-const PORT = 3001;
+const PORT = 3000;
 app.listen(PORT, () => console.log(`[API] Stripe server running on http://localhost:${PORT}`));
