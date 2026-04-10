@@ -482,10 +482,9 @@ export default function App() {
   if (screen === "splash") return (
     <div style={ST.wrap}>
       <div style={{ ...ST.page, justifyContent: "center", alignItems: "center", gap: 28, background: "radial-gradient(ellipse at 50% 30%,#1A3A5C44 0%,transparent 70%)" }}>
-        <div style={{ width: 110, height: 110, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%,#FFED4A,#F59E0B)", boxShadow: "0 0 80px rgba(245,158,11,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56 }}><PickleballIcon size={56} color="#0A0E1A" /></div>
+        <img src="/logo.png" alt="PicklePass" style={{ width: 200, objectFit: "contain" }} />
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, lineHeight: 1.1 }}>WPC Software</div>
-          <div style={{ color: "#6B7BA4", marginTop: 8, fontSize: 15 }}>Pickleball Turnierverwaltung</div>
+          <div style={{ color: "#6B7BA4", marginTop: 4, fontSize: 15 }}>Das Tor zu Pickleball Turnieren</div>
         </div>
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
           <button style={ST.btn} onClick={() => setScreenTracked("phone")}>Als Spieler anmelden</button>
@@ -628,16 +627,19 @@ export default function App() {
   if (screen === "dashboard") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={{ ...ST.hdr, justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 13, color: "#6B7BA4" }}>Hallo,</div>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>{profile.firstName || "Spieler"}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <img src="/logo.png" alt="PicklePass" style={{ height: 28, objectFit: "contain" }} />
+          <div>
+            <div style={{ fontSize: 13, color: "#6B7BA4" }}>Hallo,</div>
+            <div style={{ fontSize: 22, fontWeight: 800 }}>{profile.firstName || "Spieler"}</div>
+          </div>
         </div>
         <DuprBadge rating={duprData?.rating} verified={!!duprData} size="small" />
       </div>
 
       {/* Tournament Card */}
       <div style={{ background: "linear-gradient(135deg,#0D2137,#1A3A5C)", borderRadius: 24, padding: 24, border: "1.5px solid #2A4A6C", marginBottom: 16, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", right: -10, top: -10, fontSize: 80, opacity: 0.07 }}><PickleballIcon size={80} color="#F0F4FF" /></div>
+        <img src="/logo.png" alt="" style={{ position: "absolute", right: -10, top: -10, width: 80, opacity: 0.07 }} />
         <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Nächstes Turnier</div>
         <div style={{ fontSize: 21, fontWeight: 800, marginBottom: 4 }}>{TOURNAMENT.name}</div>
         <div style={{ fontSize: 14, color: "#8BA4C0", marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}><Calendar size={14} /> {TOURNAMENT.date}</div>
