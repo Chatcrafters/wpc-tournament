@@ -625,8 +625,8 @@ export default function App() {
     <div style={ST.wrap}><div style={ST.page}>
       <div style={{ ...ST.hdr, justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontSize: 13, color: "#6B7BA4" }}>Hallo,</div>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>{profile.firstName || "Spieler"}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#F0F4FF", letterSpacing: -0.5 }}>Pickle<span style={{ color: "#F59E0B" }}>Pass</span></div>
+          <div style={{ fontSize: 13, color: "#6B7BA4" }}>Hallo, {profile.firstName || "Spieler"}</div>
         </div>
         <DuprBadge rating={duprData?.rating} verified={!!duprData} size="small" />
       </div>
@@ -1262,7 +1262,7 @@ export default function App() {
   if (screen === "admin") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={{ ...ST.hdr, justifyContent: "space-between" }}>
-        <div><div style={{ fontSize: 13, color: "#F59E0B", fontWeight: 700 }}>PICKLE<span style={{ color: "#F59E0B" }}>PASS</span> · ORGANISATOR</div><div style={{ fontSize: 22, fontWeight: 800 }}>Teilnehmerliste</div></div>
+        <div><div style={{ fontSize: 13, fontWeight: 700, color: "#F0F4FF" }}>PICKLE<span style={{ color: "#F59E0B" }}>PASS</span> <span style={{ color: "#6B7BA4" }}>· ORGANISATOR</span></div><div style={{ fontSize: 22, fontWeight: 800 }}>Teilnehmerliste</div></div>
         <button style={{ ...ST.back, color: "#F59E0B" }} onClick={() => setScreenTracked("splash")}><X size={20} /></button>
       </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
