@@ -482,7 +482,7 @@ export default function App() {
       partnerPhone: partnerMode === "have" ? partnerPhone : null,
       lookingForPartner: partnerMode === "search",
       paid: false,
-      paidForPartner: false,
+      paidForPartner: payOption === "both",
       payOption,
     };
     const { data } = await saveRegistration(newReg);
@@ -764,8 +764,12 @@ export default function App() {
                     <DIcon type={d?.icon} size={24} />
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{d?.label} · {r.age}</div>
-                      <div style={{ fontSize: 12, marginTop: 2, color: r.paid ? "#4ADE80" : "#F59E0B" }}>
-                        {r.paid ? (r.paidForPartner ? "Du hast für beide bezahlt" : "Bezahlt") : "Zahlung nach Paarung"}
+                      <div style={{ fontSize: 12, marginTop: 2, color: (r.paid ? "#4ADE80" : "#F59E0B") }}>
+                        {r.paid && r.paidForPartner ? "Du hast für beide bezahlt"
+                          : r.paid && r.partnerPhone && !r.paidForPartner ? "Bezahlt – Partner zahlt selbst"
+                          : r.paid ? "Bezahlt"
+                          : r.lookingForPartner ? "Zahlung nach Paarung"
+                          : "Zahlung ausstehend"}
                       </div>
                     </div>
                   </div>
