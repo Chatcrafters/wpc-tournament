@@ -123,6 +123,13 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── Reload registrations when navigating to dashboard ──
+  useEffect(() => {
+    if (screen === "dashboard" && profileId) {
+      loadRegistrations(profileId);
+    }
+  }, [screen, profileId]);
+
   // ── Load profile from Supabase ──
   const loadProfile = async (uid) => {
     const { data } = await supabase.from("profiles").select("*").eq("user_id", uid).single();
@@ -321,6 +328,7 @@ export default function App() {
   const saveRegistration = async (regData) => {
     console.log("[Registration] Saving:", { profileId, ...regData });
     const { data, error } = await supabase.from("registrations").insert({
+      user_id: userId,
       player_id: profileId,
       discipline: regData.discipline,
       level: regData.level,
@@ -426,7 +434,7 @@ export default function App() {
     };
     const { data } = await saveRegistration(newReg);
     if (data) {
-      setRegistrations([...registrations, { ...newReg, id: data.id }]);
+      await loadRegistrations(profileId);
     }
     setScreen("success");
   };
