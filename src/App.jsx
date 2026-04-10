@@ -456,16 +456,12 @@ export default function App() {
   };
 
   const needsPartner = (d) => d === "doubles" || d === "mixed";
-  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  const supportsContactPicker = typeof navigator !== "undefined" && "contacts" in navigator && "ContactsManager" in window;
   const selectContact = async (setter) => {
     try {
-      if ("contacts" in navigator && "ContactsManager" in window) {
-        const contacts = await navigator.contacts.select(["name", "tel"], { multiple: false });
-        if (contacts.length > 0 && contacts[0].tel?.length > 0) {
-          setter(contacts[0].tel[0]);
-        }
-      } else {
-        alert("Kontakte werden auf diesem Gerät nicht unterstützt");
+      const contacts = await navigator.contacts.select(["name", "tel"], { multiple: false });
+      if (contacts.length > 0 && contacts[0].tel?.length > 0) {
+        setter(contacts[0].tel[0]);
       }
     } catch (err) {
       console.log("[Contacts] Auswahl abgebrochen");
@@ -593,7 +589,7 @@ export default function App() {
         <div style={{ color: "#6B7BA4", fontSize: 14, lineHeight: 1.6 }}>Deine Nummer ist dein Login. Du bekommst einen Code per SMS.</div>
         <div>
           <label style={ST.lbl}>Telefonnummer</label>
-          <input style={ST.inp} type="tel" placeholder="+43 664 123 456 7" value={phone} onChange={e => setPhone(e.target.value)} />
+          <input style={ST.inp} type="tel" autoComplete="tel" placeholder="+43 664 123 456 7" value={phone} onChange={e => setPhone(e.target.value)} />
         </div>
         {otpSent && (
           <div>
@@ -818,8 +814,8 @@ export default function App() {
         <div>
           <label style={ST.lbl}>Handynummer (optional)</label>
           <div style={{ display: "flex", gap: 8 }}>
-            <input style={{ ...ST.inp, flex: 1 }} type="tel" placeholder="+43 664 987 654 3" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} />
-            {isMobile && <button style={{ ...ST.btnB, height: 54, borderRadius: 14, flexShrink: 0 }} onClick={() => selectContact(setInvitePhone)}><BookUser size={20} /></button>}
+            <input style={{ ...ST.inp, flex: 1 }} type="tel" autoComplete="tel" placeholder="+43 664 987 654 3" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} />
+            {supportsContactPicker && <button style={{ ...ST.btnB, height: 54, borderRadius: 14, flexShrink: 0 }} onClick={() => selectContact(setInvitePhone)}><BookUser size={20} /></button>}
           </div>
           <div style={{ fontSize: 12, color: "#6B7BA4", marginTop: 6 }}>Leer lassen um nur den Link zu öffnen</div>
         </div>
@@ -1022,8 +1018,8 @@ export default function App() {
         <div>
           <label style={ST.lbl}>Handynummer Partner</label>
           <div style={{ display: "flex", gap: 8 }}>
-            <input style={{ ...ST.inp, flex: 1 }} type="tel" placeholder="+43 664 987 654 3" value={partnerPhone} onChange={e => setPartnerPhone(e.target.value)} />
-            {isMobile && <button style={{ ...ST.btnB, height: 54, borderRadius: 14, flexShrink: 0 }} onClick={() => selectContact(setPartnerPhone)}><BookUser size={20} /></button>}
+            <input style={{ ...ST.inp, flex: 1 }} type="tel" autoComplete="tel" placeholder="+43 664 987 654 3" value={partnerPhone} onChange={e => setPartnerPhone(e.target.value)} />
+            {supportsContactPicker && <button style={{ ...ST.btnB, height: 54, borderRadius: 14, flexShrink: 0 }} onClick={() => selectContact(setPartnerPhone)}><BookUser size={20} /></button>}
           </div>
         </div>
         {partnerPhone.length > 5 && (
