@@ -466,8 +466,13 @@ export default function App() {
   const pendingSearch = registrations.filter(r => r.pending && r.lookingForPartner);
   const currentIsSearch = partnerMode === "search";
   const payableCount = pendingPayable.length + (!currentIsSearch ? 1 : 0);
-  const pricePerReg = payOption === "both" ? 70 : payOption === "partner" ? 0 : 35;
-  const totalToday = payableCount * pricePerReg;
+  const currentHasPartner = needsPartner(reg.discipline) && !currentIsSearch;
+  const withPartnerCount = pendingPayable.filter(r => r.partnerPhone).length + (currentHasPartner && partnerPhone ? 1 : 0);
+  const withoutPartnerCount = payableCount - withPartnerCount;
+  const totalToday = payOption === "both"
+    ? withPartnerCount * 70 + withoutPartnerCount * 35
+    : payOption === "partner" ? 0
+    : payableCount * 35;
 
   const finish = async () => {
     const newReg = {
@@ -1200,7 +1205,7 @@ export default function App() {
           <div style={ST.lbl}>Wer zahlt? ({payableCount} {payableCount === 1 ? "Kategorie" : "Kategorien"})</div>
           {(needsPartner(reg.discipline) && !currentIsSearch) || pendingPayable.some(r => r.partnerPhone) ? <>
             <PayOption icon={<User size={24} />} title="Nur mein Anteil" desc={`Partner zahlt selbst – bis 72h vor Turnier · ${payableCount}× € 35`} price={`€ ${payableCount * 35}`} selected={payOption === "self"} onClick={() => setPayOption("self")} />
-            <PayOption icon={<Users size={24} />} title="Ich zahle für alle Partner mit" desc={`Kein Stress für Partner · ${payableCount}× € 70`} price={`€ ${payableCount * 70}`} selected={payOption === "both"} onClick={() => setPayOption("both")} />
+            <PayOption icon={<Users size={24} />} title="Ich zahle für alle Partner mit" desc={withPartnerCount > 0 ? `${withPartnerCount}× € 70 (mit Partner) ${withoutPartnerCount > 0 ? `+ ${withoutPartnerCount}× € 35` : ""}` : `${payableCount}× € 35`} price={`€ ${withPartnerCount * 70 + withoutPartnerCount * 35}`} selected={payOption === "both"} onClick={() => setPayOption("both")} />
             <PayOption icon={<MessageCircle size={24} />} title="Partner zahlen für uns alle" desc="Du zahlst heute nichts" price="€ 0 jetzt" selected={payOption === "partner"} onClick={() => setPayOption("partner")} />
           </> : <PayOption icon={<User size={24} />} title={payableCount > 1 ? `Alle ${payableCount} Startgelder` : "Mein Startgeld"} desc={payableCount > 1 ? `${payableCount}× € 35,00` : "Einzel – nur dein Anteil"} price={`€ ${payableCount * 35}`} selected={payOption === "self"} onClick={() => setPayOption("self")} />}
         </>}
@@ -1225,7 +1230,7 @@ export default function App() {
         {/* Total */}
         <div style={{ background: "#0D1F33", borderRadius: 16, padding: "14px 18px" }}>
           {(pendingSearch.length > 0 || currentIsSearch) && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}><span style={{ color: "#4ADE80", display: "flex", alignItems: "center", gap: 4 }}><Search size={12} /> {pendingSearch.length + (currentIsSearch ? 1 : 0)} × Partnerbörse</span><span style={{ color: "#4ADE80" }}>€ 0,00 jetzt</span></div>}
-          {payableCount > 0 && payOption && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}><span style={{ color: "#6B7BA4" }}>{payableCount} × Startgeld</span><span style={{ color: "#6B7BA4" }}>€ {pricePerReg} × {payableCount}</span></div>}
+          {payableCount > 0 && payOption && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}><span style={{ color: "#6B7BA4" }}>{payableCount} × Startgeld</span><span style={{ color: "#6B7BA4" }}>€ {totalToday.toFixed(2)}</span></div>}
           <div style={{ borderTop: "1px solid #1E2845", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontWeight: 700, fontSize: 16 }}>Heute fällig</span>
             <span style={{ fontWeight: 800, fontSize: 24, color: "#F59E0B" }}>{payOption || currentIsSearch ? `€ ${totalToday.toFixed(2)}` : "—"}</span>
