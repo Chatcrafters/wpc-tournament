@@ -496,9 +496,12 @@ export default function App() {
 
     // Redirect to Stripe Checkout
     try {
-      console.log("[Stripe] Calling: /api/create-checkout-session");
+      const apiUrl = import.meta.env.DEV
+        ? "http://localhost:3002/api/create-checkout-session"
+        : "/api/create-checkout-session";
+      console.log("[Stripe] Calling:", apiUrl);
       console.log("[Stripe] Payload:", { amount: totalToday, registrationId: regData.id });
-      const res = await fetch("/api/create-checkout-session", {
+      const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

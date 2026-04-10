@@ -1,11 +1,22 @@
 require('dotenv').config({ path: '.env.local' });
 const express = require('express');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const cors = require('cors');
+
+const sk = process.env.STRIPE_SECRET_KEY;
+if (!sk) {
+  console.error('[API] ERROR: STRIPE_SECRET_KEY not found in .env.local');
+  process.exit(1);
+}
+console.log('[API] Stripe key loaded:', sk.substring(0, 12) + '...');
+
+const stripe = require('stripe')(sk);
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 app.post('/api/create-checkout-session', async (req, res) => {
   const { amount, registrationId, playerName } = req.body;
+  console.log('[API] Received:', { amount, registrationId, playerName });
 
   if (!amount || !registrationId) {
     return res.status(400).json({ error: 'Missing amount or registrationId' });
@@ -39,5 +50,12 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`[API] Stripe server running on http://localhost:${PORT}`));
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+const PORT = 3002;
+app.listen(PORT, () => {
+  console.log(`[API] Stripe server running on http://localhost:${PORT}`);
+  console.log('[API] Waiting for requests...');
+});

@@ -12,6 +12,7 @@
   "dependencies": {
     "@stripe/stripe-js": "^9.1.0",
     "@supabase/supabase-js": "^2.103.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
     "lucide-react": "^1.8.0",
