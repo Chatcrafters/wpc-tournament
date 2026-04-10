@@ -116,7 +116,7 @@ export default function App() {
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteCategory, setInviteCategory] = useState({ discipline: null, level: null, age: null });
 
-  // ── Check existing session on mount + listen for auth changes ──
+  // ── Check existing session on mount ──
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -127,13 +127,12 @@ export default function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
+      if (event === "SIGNED_IN" && session?.user) {
         setUserId(session.user.id);
         setPhone(session.user.phone || "");
-        if (event === "SIGNED_IN") {
-          loadProfile(session.user.id);
-        }
-      } else {
+        loadProfile(session.user.id);
+      }
+      if (event === "SIGNED_OUT") {
         setUserId(null);
         setProfileId(null);
         setScreen("splash");
@@ -758,10 +757,10 @@ export default function App() {
           <div style={{ ...ST.card, borderColor: "#F59E0B44" }}>
             <div style={ST.lbl}>Disziplin</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-              {DISCIPLINES.map(d => (
+              {DISCIPLINES.filter(d => d.hasPartner).map(d => (
                 <button key={d.key} onClick={() => setInviteCategory({ ...inviteCategory, discipline: d.key })}
-                  style={{ padding: "8px 14px", borderRadius: 50, border: "2px solid " + (inviteCategory.discipline === d.key ? "#F59E0B" : "#1E2845"), background: inviteCategory.discipline === d.key ? "rgba(245,158,11,0.15)" : "transparent", color: inviteCategory.discipline === d.key ? "#F59E0B" : "#6B7BA4", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  {d.icon} {d.label}
+                  style={{ padding: "8px 14px", borderRadius: 50, border: "2px solid " + (inviteCategory.discipline === d.key ? "#F59E0B" : "#1E2845"), background: inviteCategory.discipline === d.key ? "rgba(245,158,11,0.15)" : "transparent", color: inviteCategory.discipline === d.key ? "#F59E0B" : "#6B7BA4", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                  <DIcon type={d.icon} size={14} /> {d.label}
                 </button>
               ))}
             </div>
