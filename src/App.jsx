@@ -496,7 +496,8 @@ export default function App() {
 
     // Redirect to Stripe Checkout
     try {
-      console.log("[Stripe] Creating checkout session, amount:", totalToday);
+      console.log("[Stripe] Calling: /api/create-checkout-session");
+      console.log("[Stripe] Payload:", { amount: totalToday, registrationId: regData.id });
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -506,12 +507,15 @@ export default function App() {
           playerName: `${profile.firstName} ${profile.lastName}`,
         }),
       });
-      const { url, error } = await res.json();
-      console.log("[Stripe] Checkout URL:", url, "Error:", error);
-      if (url) {
-        window.location.href = url;
+      console.log("[Stripe] Response status:", res.status);
+      const text = await res.text();
+      console.log("[Stripe] Raw response:", text);
+      const data = JSON.parse(text);
+      if (data.url) {
+        console.log("[Stripe] Redirecting to:", data.url);
+        window.location.href = data.url;
       } else {
-        console.error("[Stripe] No URL returned:", error);
+        console.error("[Stripe] No URL returned:", data.error);
         setScreenTracked("success");
       }
     } catch (err) {
