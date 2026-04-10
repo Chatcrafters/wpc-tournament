@@ -482,10 +482,7 @@ export default function App() {
   if (screen === "splash") return (
     <div style={ST.wrap}>
       <div style={{ ...ST.page, justifyContent: "center", alignItems: "center", gap: 28, background: "radial-gradient(ellipse at 50% 30%,#1A3A5C44 0%,transparent 70%)" }}>
-        <img src="/logo-dark.png" alt="PicklePass" style={{ width: 220, objectFit: "contain" }} />
-        <div style={{ textAlign: "center" }}>
-          <div style={{ color: "#6B7BA4", marginTop: 4, fontSize: 15 }}>Das Tor zu Pickleball Turnieren</div>
-        </div>
+        <img src="/logo.png" alt="PicklePass" style={{ width: 200 }} />
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
           <button style={ST.btn} onClick={() => setScreenTracked("phone")}>Als Spieler anmelden</button>
           <button style={ST.ghost} onClick={() => { loadAdminData(); setScreenTracked("admin"); }}>Organisatoren-Ansicht</button>
@@ -627,19 +624,15 @@ export default function App() {
   if (screen === "dashboard") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={{ ...ST.hdr, justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src="/logo-icon.png" alt="PicklePass" style={{ height: 32, objectFit: "contain" }} />
-          <div>
-            <div style={{ fontSize: 13, color: "#6B7BA4" }}>Hallo,</div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>{profile.firstName || "Spieler"}</div>
-          </div>
+        <div>
+          <div style={{ fontSize: 13, color: "#6B7BA4" }}>Hallo,</div>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>{profile.firstName || "Spieler"}</div>
         </div>
         <DuprBadge rating={duprData?.rating} verified={!!duprData} size="small" />
       </div>
 
       {/* Tournament Card */}
       <div style={{ background: "linear-gradient(135deg,#0D2137,#1A3A5C)", borderRadius: 24, padding: 24, border: "1.5px solid #2A4A6C", marginBottom: 16, position: "relative", overflow: "hidden" }}>
-        <img src="/logo-icon.png" alt="" style={{ position: "absolute", right: -10, top: -10, width: 80, opacity: 0.07 }} />
         <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Nächstes Turnier</div>
         <div style={{ fontSize: 21, fontWeight: 800, marginBottom: 4 }}>{TOURNAMENT.name}</div>
         <div style={{ fontSize: 14, color: "#8BA4C0", marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}><Calendar size={14} /> {TOURNAMENT.date}</div>
@@ -1269,7 +1262,7 @@ export default function App() {
   if (screen === "admin") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={{ ...ST.hdr, justifyContent: "space-between" }}>
-        <div><div style={{ fontSize: 13, color: "#F59E0B", fontWeight: 700 }}>ORGANISATOR</div><div style={{ fontSize: 22, fontWeight: 800 }}>Teilnehmerliste</div></div>
+        <div><div style={{ fontSize: 13, color: "#F59E0B", fontWeight: 700 }}>PICKLE<span style={{ color: "#F59E0B" }}>PASS</span> · ORGANISATOR</div><div style={{ fontSize: 22, fontWeight: 800 }}>Teilnehmerliste</div></div>
         <button style={{ ...ST.back, color: "#F59E0B" }} onClick={() => setScreenTracked("splash")}><X size={20} /></button>
       </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
