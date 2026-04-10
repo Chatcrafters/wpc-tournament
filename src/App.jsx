@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "./lib/supabase";
 import { User, Users, Handshake, Search, Zap, CheckCircle, XCircle, Clock, Mail, UserPlus, Star, Target, MessageCircle, MapPin, Trophy, CreditCard, ArrowLeft, ArrowRight, X, Plus, AlertTriangle, Lightbulb, Phone, Calendar, ClipboardList, Hand } from "lucide-react";
 
@@ -87,6 +87,8 @@ function PayOption({ icon, title, desc, price, selected, onClick }) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState("splash");
+  const screenRef = useRef("splash");
+  const setScreenTracked = (s) => { screenRef.current = s; setScreen(s); };
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -130,12 +132,15 @@ export default function App() {
       if (event === "SIGNED_IN" && session?.user) {
         setUserId(session.user.id);
         setPhone(session.user.phone || "");
-        loadProfile(session.user.id);
+        const loginScreens = ["splash", "phone", "profile"];
+        if (loginScreens.includes(screenRef.current)) {
+          loadProfile(session.user.id);
+        }
       }
       if (event === "SIGNED_OUT") {
         setUserId(null);
         setProfileId(null);
-        setScreen("splash");
+        setScreenTracked("splash");
       }
     });
 
@@ -167,9 +172,9 @@ export default function App() {
       }
       await loadRegistrations(data.id);
       await loadIncomingRequests(data.id);
-      setScreen("dashboard");
+      setScreenTracked("dashboard");
     } else {
-      setScreen("profile");
+      setScreenTracked("profile");
     }
   };
 
@@ -337,7 +342,7 @@ export default function App() {
     }
     console.log("[Profile] Save error:", error);
     if (!error) {
-      setScreen("dashboard");
+      setScreenTracked("dashboard");
     } else {
       setAuthError("Profil konnte nicht gespeichert werden: " + error.message);
     }
@@ -398,7 +403,7 @@ export default function App() {
     setPartnerMode("have");
     setPartnerPhone(req.fromPhone);
     setPayOption("self");
-    setScreen("pairingConfirmed");
+    setScreenTracked("pairingConfirmed");
   };
 
   // ── Reject partner request ──
@@ -456,7 +461,7 @@ export default function App() {
     if (data) {
       await loadRegistrations(profileId);
     }
-    setScreen("success");
+    setScreenTracked("success");
   };
 
   // WhatsApp URL builder
@@ -483,8 +488,8 @@ export default function App() {
           <div style={{ color: "#6B7BA4", marginTop: 8, fontSize: 15 }}>Pickleball Turnierverwaltung</div>
         </div>
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-          <button style={ST.btn} onClick={() => setScreen("phone")}>Als Spieler anmelden</button>
-          <button style={ST.ghost} onClick={() => { loadAdminData(); setScreen("admin"); }}>Organisatoren-Ansicht</button>
+          <button style={ST.btn} onClick={() => setScreenTracked("phone")}>Als Spieler anmelden</button>
+          <button style={ST.ghost} onClick={() => { loadAdminData(); setScreenTracked("admin"); }}>Organisatoren-Ansicht</button>
           <div style={{ textAlign: "center", color: "#3A4A6A", fontSize: 13, marginTop: 4 }}>Keine App nötig · Läuft im Browser</div>
         </div>
       </div>
@@ -495,7 +500,7 @@ export default function App() {
   if (screen === "phone") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => setScreen("splash")}><ArrowLeft size={20} /></button>
+        <button style={ST.back} onClick={() => setScreenTracked("splash")}><ArrowLeft size={20} /></button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Login</span>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -528,7 +533,7 @@ export default function App() {
   if (screen === "profile") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => setScreen(registrations.length > 0 ? "dashboard" : "phone")}><ArrowLeft size={20} /></button>
+        <button style={ST.back} onClick={() => setScreenTracked(registrations.length > 0 ? "dashboard" : "phone")}><ArrowLeft size={20} /></button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Profil</span>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -646,13 +651,13 @@ export default function App() {
       {/* Quick actions */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         <button style={{ flex: 1, background: "#141A2E", border: "1.5px solid #1E2845", borderRadius: 16, padding: 14, cursor: "pointer", color: "#F0F4FF", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-          onClick={() => { setFLevel(null); setFAge(null); loadBoard(); setScreen("board"); }}><Search size={14} /> Partnerbörse</button>
+          onClick={() => { setFLevel(null); setFAge(null); loadBoard(); setScreenTracked("board"); }}><Search size={14} /> Partnerbörse</button>
         <button style={{ flex: 1, background: "#141A2E", border: "1.5px solid #1E2845", borderRadius: 16, padding: 14, cursor: "pointer", color: "#F0F4FF", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-          onClick={() => setScreen("profile")}><Zap size={14} /> DUPR: {duprData ? duprData.rating.toFixed(2) : "—"}</button>
+          onClick={() => setScreenTracked("profile")}><Zap size={14} /> DUPR: {duprData ? duprData.rating.toFixed(2) : "—"}</button>
       </div>
 
       {/* FREUND EINLADEN Button */}
-      <button onClick={() => setScreen("invite")} style={{ width: "100%", background: "linear-gradient(135deg,#1A2A4C,#0D1F33)", border: "1.5px solid #2A4A6C", borderRadius: 18, padding: 16, cursor: "pointer", marginBottom: 16, display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
+      <button onClick={() => setScreenTracked("invite")} style={{ width: "100%", background: "linear-gradient(135deg,#1A2A4C,#0D1F33)", border: "1.5px solid #2A4A6C", borderRadius: 18, padding: 16, cursor: "pointer", marginBottom: 16, display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
         <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(59,130,246,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}><UserPlus size={22} color="#60A5FA" /></div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#F0F4FF" }}>Freund zum Turnier einladen</div>
@@ -663,7 +668,7 @@ export default function App() {
 
       {/* Incoming requests notification */}
       {pendingCount > 0 && (
-        <button onClick={() => setScreen("requests")} style={{ width: "100%", background: "linear-gradient(135deg,#1A3A5C,#0D2137)", border: "2px solid #F59E0B", borderRadius: 18, padding: 16, cursor: "pointer", marginBottom: 16, display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
+        <button onClick={() => setScreenTracked("requests")} style={{ width: "100%", background: "linear-gradient(135deg,#1A3A5C,#0D2137)", border: "2px solid #F59E0B", borderRadius: 18, padding: 16, cursor: "pointer", marginBottom: 16, display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
           <div style={{ position: "relative" }}>
             <Mail size={28} color="#F59E0B" />
             <span style={{ position: "absolute", top: -4, right: -4, background: "#EF4444", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{pendingCount}</span>
@@ -705,7 +710,7 @@ export default function App() {
       }
       <div style={{ marginTop: 8 }}>
         {registrations.length < 3
-          ? <button style={ST.btn} onClick={() => { setReg({ discipline: null, level: null, age: null }); setPartnerPhone(""); setPartnerMode(null); setPayOption(null); setStep(0); setLevelWarn(false); setScreen("register"); }}><Plus size={16} style={{display:"inline",verticalAlign:"middle"}} /> Neue Kategorie anmelden</button>
+          ? <button style={ST.btn} onClick={() => { setReg({ discipline: null, level: null, age: null }); setPartnerPhone(""); setPartnerMode(null); setPayOption(null); setStep(0); setLevelWarn(false); setScreenTracked("register"); }}><Plus size={16} style={{display:"inline",verticalAlign:"middle"}} /> Neue Kategorie anmelden</button>
           : <div style={{ textAlign: "center", color: "#6B7BA4", fontSize: 13, padding: 16 }}>Maximum 3 Kategorien erreicht</div>}
       </div>
     </div></div>
@@ -715,7 +720,7 @@ export default function App() {
   if (screen === "invite") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => setScreen("dashboard")}><ArrowLeft size={20} /></button>
+        <button style={ST.back} onClick={() => setScreenTracked("dashboard")}><ArrowLeft size={20} /></button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Freund einladen</span>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -822,7 +827,7 @@ export default function App() {
             Mit Kategorie-Vorschlag einladen
           </a>
         )}
-        <button style={ST.ghost} onClick={() => setScreen("dashboard")}>Zurück</button>
+        <button style={ST.ghost} onClick={() => setScreenTracked("dashboard")}>Zurück</button>
       </div>
     </div></div>
   );
@@ -831,7 +836,7 @@ export default function App() {
   if (screen === "register") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => step > 0 ? setStep(step - 1) : setScreen("dashboard")}><ArrowLeft size={20} /></button>
+        <button style={ST.back} onClick={() => step > 0 ? setStep(step - 1) : setScreenTracked("dashboard")}><ArrowLeft size={20} /></button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Kategorie wählen</span>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 24 }}>
@@ -867,7 +872,7 @@ export default function App() {
           Maßgeblich ist das <strong style={{ color: "#F0F4FF" }}>Turnierjahr {TOURNAMENT.year}</strong> – du wirst {playerAge} Jahre alt.
         </div>
         {eligibleGroups.map(ag => (
-          <button key={ag.key} style={ST.row("#F59E0B33")} onClick={() => { setReg({ ...reg, age: ag.key }); needsPartner(reg.discipline) ? setScreen("partnerChoice") : (setPayOption("self"), setScreen("payment")); }}>
+          <button key={ag.key} style={ST.row("#F59E0B33")} onClick={() => { setReg({ ...reg, age: ag.key }); needsPartner(reg.discipline) ? setScreenTracked("partnerChoice") : (setPayOption("self"), setScreenTracked("payment")); }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: "#1E2845", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, flexShrink: 0 }}>{ag.key}</div>
             <div style={{ flex: 1 }}><div style={{ fontSize: 17, fontWeight: 700 }}>{ag.label}</div><div style={{ fontSize: 13, color: "#4ADE80", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}><CheckCircle size={12} /> Berechtigt im Jahr {TOURNAMENT.year}</div></div>
             <span style={{ color: "#3A4A6A" }}><ArrowRight size={16} /></span>
@@ -887,7 +892,7 @@ export default function App() {
   if (screen === "partnerChoice") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => setScreen("register")}><ArrowLeft size={20} /></button>
+        <button style={ST.back} onClick={() => setScreenTracked("register")}><ArrowLeft size={20} /></button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Partner</span>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -895,12 +900,12 @@ export default function App() {
         <div style={{ background: "#141A2E", borderRadius: 14, padding: 14, fontSize: 13, color: "#6B7BA4", border: "1.5px solid #1E2845" }}>
           {DISCIPLINES.find(d => d.key === reg.discipline)?.icon} {DISCIPLINES.find(d => d.key === reg.discipline)?.label} · Level {reg.level} · {reg.age}
         </div>
-        <button style={ST.row("#F59E0B55")} onClick={() => { setPartnerMode("have"); setScreen("partnerInvite"); }}>
+        <button style={ST.row("#F59E0B55")} onClick={() => { setPartnerMode("have"); setScreenTracked("partnerInvite"); }}>
           <Phone size={30} color="#F59E0B" />
           <div><div style={{ fontSize: 17, fontWeight: 700 }}>Ja, ich habe einen Partner</div><div style={{ fontSize: 13, color: "#6B7BA4", marginTop: 2 }}>Ich gebe seine Handynummer ein</div></div>
           <span style={{ marginLeft: "auto", color: "#3A4A6A" }}><ArrowRight size={16} /></span>
         </button>
-        <button style={ST.row("#4ADE8055")} onClick={() => { setPartnerMode("search"); setPayOption(null); setScreen("payment"); }}>
+        <button style={ST.row("#4ADE8055")} onClick={() => { setPartnerMode("search"); setPayOption(null); setScreenTracked("payment"); }}>
           <Search size={30} color="#4ADE80" />
           <div><div style={{ fontSize: 17, fontWeight: 700 }}>Nein, ich suche noch</div><div style={{ fontSize: 13, color: "#6B7BA4", marginTop: 2 }}>{hasAnyPaid ? "Kostenlos auf Partnerbörse eintragen" : "Zahlung erst nach Paarung (24h)"}</div></div>
           <span style={{ marginLeft: "auto", color: "#3A4A6A" }}><ArrowRight size={16} /></span>
@@ -918,7 +923,7 @@ export default function App() {
   if (screen === "partnerInvite") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => setScreen("partnerChoice")}><ArrowLeft size={20} /></button>
+        <button style={ST.back} onClick={() => setScreenTracked("partnerChoice")}><ArrowLeft size={20} /></button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Partner einladen</span>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 18 }}>
@@ -942,8 +947,8 @@ export default function App() {
         )}
       </div>
       <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-        <button style={{ ...ST.btn, opacity: partnerPhone.length < 8 ? 0.4 : 1 }} onClick={() => partnerPhone.length >= 8 && (setPayOption("self"), setScreen("payment"))}>Partner einladen & weiter</button>
-        <button style={ST.ghost} onClick={() => { setPayOption("self"); setScreen("payment"); }}>Später hinzufügen</button>
+        <button style={{ ...ST.btn, opacity: partnerPhone.length < 8 ? 0.4 : 1 }} onClick={() => partnerPhone.length >= 8 && (setPayOption("self"), setScreenTracked("payment"))}>Partner einladen & weiter</button>
+        <button style={ST.ghost} onClick={() => { setPayOption("self"); setScreenTracked("payment"); }}>Später hinzufügen</button>
       </div>
     </div></div>
   );
@@ -952,7 +957,7 @@ export default function App() {
   if (screen === "board") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => setScreen("dashboard")}><ArrowLeft size={20} /></button>
+        <button style={ST.back} onClick={() => setScreenTracked("dashboard")}><ArrowLeft size={20} /></button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Partnerbörse</span>
       </div>
       <div style={{ fontSize: 14, color: "#6B7BA4", marginBottom: 16 }}>Spieler die noch einen Partner suchen</div>
@@ -1011,7 +1016,7 @@ export default function App() {
   if (screen === "requests") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => setScreen("dashboard")}><ArrowLeft size={20} /></button>
+        <button style={ST.back} onClick={() => setScreenTracked("dashboard")}><ArrowLeft size={20} /></button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Partneranfragen</span>
       </div>
       {pendingCount === 0 && <div style={{ ...ST.card, textAlign: "center", padding: 40, color: "#3A4A6A" }}><div style={{ fontSize: 36, marginBottom: 8 }}><CheckCircle size={36} color="#3A4A6A" /></div><div>Keine offenen Anfragen</div></div>}
@@ -1081,8 +1086,8 @@ export default function App() {
           <div style={{ fontSize: 13, color: "#6B7BA4" }}>Beide Spieler wurden per WhatsApp benachrichtigt mit dem Zahlungslink.</div>
         </div>
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
-          <button style={ST.btn} onClick={() => setScreen("payment")}>Jetzt sofort bezahlen</button>
-          <button style={ST.ghost} onClick={() => setScreen("dashboard")}>Später bezahlen</button>
+          <button style={ST.btn} onClick={() => setScreenTracked("payment")}>Jetzt sofort bezahlen</button>
+          <button style={ST.ghost} onClick={() => setScreenTracked("dashboard")}>Später bezahlen</button>
         </div>
       </div>
     </div>
@@ -1092,7 +1097,7 @@ export default function App() {
   if (screen === "payment") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => needsPartner(reg.discipline) ? setScreen("partnerInvite") : setScreen("register")}><ArrowLeft size={20} /></button>
+        <button style={ST.back} onClick={() => needsPartner(reg.discipline) ? setScreenTracked("partnerInvite") : setScreenTracked("register")}><ArrowLeft size={20} /></button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Bezahlen & Anmelden</span>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1174,7 +1179,7 @@ export default function App() {
               const pending = { ...reg, id: Date.now(), partnerPhone: partnerMode === "have" ? partnerPhone : null, lookingForPartner: partnerMode === "search", paid: false, paidForPartner: false, payOption, pending: true };
               setRegistrations([...registrations, pending]);
               setReg({ discipline: null, level: null, age: null }); setPartnerPhone(""); setPartnerMode(null); setPayOption(null); setStep(0); setLevelWarn(false);
-              setScreen("register");
+              setScreenTracked("register");
             }}><Plus size={14} /> Weitere Kategorie hinzufügen</button>
           </div>
         )}
@@ -1229,7 +1234,7 @@ export default function App() {
         </div>}
 
         {/* Freund einladen vom Success Screen */}
-        <button onClick={() => setScreen("invite")} style={{ width: "100%", background: "linear-gradient(135deg,#1A2A4C,#0D1F33)", border: "1.5px solid #2A4A6C", borderRadius: 18, padding: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
+        <button onClick={() => setScreenTracked("invite")} style={{ width: "100%", background: "linear-gradient(135deg,#1A2A4C,#0D1F33)", border: "1.5px solid #2A4A6C", borderRadius: 18, padding: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
           <UserPlus size={28} color="#60A5FA" />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#F0F4FF" }}>Freund einladen!</div>
@@ -1239,8 +1244,8 @@ export default function App() {
         </button>
 
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
-          {registrations.length < 3 && <button style={{ ...ST.btn, width: "100%" }} onClick={() => { setReg({ discipline: null, level: null, age: null }); setPartnerPhone(""); setPartnerMode(null); setPayOption(null); setStep(0); setLevelWarn(false); setScreen("register"); }}><Plus size={16} style={{display:"inline",verticalAlign:"middle"}} /> Weitere Kategorie anmelden</button>}
-          <button style={{ ...ST.ghost, width: "100%" }} onClick={() => setScreen("dashboard")}>{registrations.length >= 3 ? "Zum Dashboard" : "Zurück zum Dashboard"}</button>
+          {registrations.length < 3 && <button style={{ ...ST.btn, width: "100%" }} onClick={() => { setReg({ discipline: null, level: null, age: null }); setPartnerPhone(""); setPartnerMode(null); setPayOption(null); setStep(0); setLevelWarn(false); setScreenTracked("register"); }}><Plus size={16} style={{display:"inline",verticalAlign:"middle"}} /> Weitere Kategorie anmelden</button>}
+          <button style={{ ...ST.ghost, width: "100%" }} onClick={() => setScreenTracked("dashboard")}>{registrations.length >= 3 ? "Zum Dashboard" : "Zurück zum Dashboard"}</button>
         </div>
 
         {registrations.length > 0 && <div style={{ width: "100%", background: "#0D1F33", borderRadius: 18, padding: 16, border: "1.5px solid #1E2845" }}>
@@ -1263,7 +1268,7 @@ export default function App() {
     <div style={ST.wrap}><div style={ST.page}>
       <div style={{ ...ST.hdr, justifyContent: "space-between" }}>
         <div><div style={{ fontSize: 13, color: "#F59E0B", fontWeight: 700 }}>ORGANISATOR</div><div style={{ fontSize: 22, fontWeight: 800 }}>Teilnehmerliste</div></div>
-        <button style={{ ...ST.back, color: "#F59E0B" }} onClick={() => setScreen("splash")}><X size={20} /></button>
+        <button style={{ ...ST.back, color: "#F59E0B" }} onClick={() => setScreenTracked("splash")}><X size={20} /></button>
       </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
         {[{ label: "Gesamt", value: adminRegs.length, col: "#F0F4FF" }, { label: "Bezahlt", value: adminRegs.filter(r => r.paid).length, col: "#4ADE80" }, { label: "Offen", value: adminRegs.filter(r => !r.paid).length, col: "#F97316" }].map((stat, i) => (
