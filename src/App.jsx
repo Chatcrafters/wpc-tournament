@@ -811,7 +811,7 @@ export default function App() {
   if (screen === "register") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
-        <button style={ST.back} onClick={() => setScreen("dashboard")}>←</button>
+        <button style={ST.back} onClick={() => step > 0 ? setStep(step - 1) : setScreen("dashboard")}>←</button>
         <span style={{ fontSize: 20, fontWeight: 700 }}>Kategorie wählen</span>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 24 }}>
