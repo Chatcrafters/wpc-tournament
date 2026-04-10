@@ -122,17 +122,22 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const payment = params.get("payment");
-    const regId = params.get("reg_id");
-    if (payment === "success" && regId) {
+    if (payment === "success") {
+      const regId = params.get("reg_id") || localStorage.getItem("pending_registration_id");
       console.log("[Stripe] Payment success for reg:", regId);
-      supabase.from("registrations").update({ paid: true }).eq("id", regId).then(({ error }) => {
-        console.log("[Stripe] Mark paid error:", error);
-      });
-      window.history.replaceState({}, "", window.location.pathname);
+      if (regId) {
+        supabase.from("registrations").update({ paid: true }).eq("id", regId).then(({ error }) => {
+          console.log("[Stripe] Mark paid error:", error);
+        });
+        localStorage.removeItem("pending_registration_id");
+      }
+      window.history.replaceState({}, "", "/");
+      setScreenTracked("dashboard");
     }
     if (payment === "cancelled") {
       console.log("[Stripe] Payment cancelled");
-      window.history.replaceState({}, "", window.location.pathname);
+      window.history.replaceState({}, "", "/");
+      setScreenTracked("dashboard");
     }
   }, []);
 
@@ -516,6 +521,7 @@ export default function App() {
       const data = JSON.parse(text);
       if (data.url) {
         console.log("[Stripe] Redirecting to:", data.url);
+        localStorage.setItem("pending_registration_id", regData.id);
         window.location.href = data.url;
       } else {
         console.error("[Stripe] No URL returned:", data.error);
