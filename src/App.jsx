@@ -3,7 +3,7 @@ import { supabase } from "./lib/supabase";
 import { User, Users, Handshake, Search, Zap, CheckCircle, XCircle, Clock, Mail, UserPlus, Star, Target, MessageCircle, MapPin, Trophy, CreditCard, ArrowLeft, ArrowRight, X, Plus, AlertTriangle, Lightbulb, Phone, Calendar, ClipboardList, Hand, BookUser } from "lucide-react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const TOURNAMENT = { name: "Vienna Pickleball Open", date: "14.–16. Juni 2025", location: "Sportpark Liesing, Wien", deadline: "1. Juni 2025", year: 2025, appUrl: "https://5kzsnz.csb.app" };
+const TOURNAMENT_DEFAULT = { name: "Vienna Pickleball Open", date: "14.–16. Juni 2025", location: "Sportpark Liesing, Wien", deadline: "1. Juni 2025", year: 2025, appUrl: "https://5kzsnz.csb.app" };
 const LEVELS = [
   { value: "3.5", color: "#4ADE80", desc: "Fortgeschrittene Anfänger" },
   { value: "4.5", color: "#FACC15", desc: "Mittleres Niveau" },
@@ -117,6 +117,38 @@ export default function App() {
   const [inviteMode, setInviteMode] = useState(null);
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteCategory, setInviteCategory] = useState({ discipline: null, level: null, age: null });
+  const [TOURNAMENT, setTournament] = useState(TOURNAMENT_DEFAULT);
+
+  // ── Load active tournament from Supabase ──
+  const loadTournament = async () => {
+    const { data, error } = await supabase
+      .from("tournaments")
+      .select("*")
+      .eq("is_active", true)
+      .limit(1)
+      .single();
+    console.log("[Tournament] Data:", data, "Error:", error);
+    if (data) {
+      const formatDate = (start, end) => {
+        if (!start) return "";
+        const s = new Date(start);
+        const opts = { day: "numeric", month: "long", year: "numeric" };
+        if (!end || start === end) return s.toLocaleDateString("de-AT", opts);
+        const e = new Date(end);
+        return `${s.getDate()}.–${e.toLocaleDateString("de-AT", opts)}`;
+      };
+      setTournament({
+        id: data.id,
+        name: data.name,
+        date: formatDate(data.date_start, data.date_end),
+        location: `${data.location || ""}${data.city ? ", " + data.city : ""}`,
+        deadline: data.deadline ? new Date(data.deadline).toLocaleDateString("de-AT", { day: "numeric", month: "long", year: "numeric" }) : "",
+        year: data.date_start ? new Date(data.date_start).getFullYear() : new Date().getFullYear(),
+        appUrl: TOURNAMENT_DEFAULT.appUrl,
+        pricePerPlayer: data.price_per_player || 35,
+      });
+    }
+  };
 
   // ── Handle Stripe return URL ──
   useEffect(() => {
@@ -143,6 +175,7 @@ export default function App() {
 
   // ── Check existing session on mount ──
   useEffect(() => {
+    loadTournament();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUserId(session.user.id);
