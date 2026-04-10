@@ -1006,6 +1006,8 @@ export default function App() {
   );
 
   // ── PARTNER INVITE ───────────────────────────────────────────────────────────
+  const partnerInviteText = `Hey! Ich möchte mit dir beim *${TOURNAMENT.name}* (${TOURNAMENT.date}) spielen!\n\n${DISCIPLINES.find(d => d.key === reg.discipline)?.label || ""} · Level ${reg.level || ""} · ${reg.age || ""}\n\nMelde dich hier an: ${TOURNAMENT.appUrl}`;
+
   if (screen === "partnerInvite") return (
     <div style={ST.wrap}><div style={ST.page}>
       <div style={ST.hdr}>
@@ -1014,29 +1016,34 @@ export default function App() {
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 18 }}>
         <div style={{ fontSize: 24, fontWeight: 800 }}>Wer spielt mit dir?</div>
-        <div style={{ color: "#6B7BA4", fontSize: 14, lineHeight: 1.6 }}>Handynummer eingeben – Partner bekommt automatisch eine WhatsApp.</div>
-        <div>
+        <div style={{ color: "#6B7BA4", fontSize: 14, lineHeight: 1.6 }}>Lade deinen Partner per WhatsApp ein oder gib seine Nummer direkt ein.</div>
+
+        {/* WhatsApp Button */}
+        <a href={`https://wa.me/?text=${encodeURIComponent(partnerInviteText)}`} target="_blank" rel="noopener noreferrer"
+          style={{ ...ST.btnG, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 16 }}>
+          <MessageCircle size={20} /> Partner per WhatsApp einladen
+        </a>
+
+        {/* WhatsApp Vorschau */}
+        <div style={{ background: "#0D2A1A", border: "1.5px solid #1A4A2A", borderRadius: 18, padding: 16 }}>
+          <div style={{ ...ST.lbl, display: "flex", alignItems: "center", gap: 6 }}><MessageCircle size={12} /> Nachricht Vorschau</div>
+          <div style={{ background: "#1A3A25", borderRadius: 12, padding: 14, fontSize: 13, color: "#D1FAE5", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+            {partnerInviteText}
+          </div>
+        </div>
+
+        {/* Manuelle Eingabe */}
+        <div style={{ borderTop: "1px solid #1E2845", paddingTop: 16 }}>
+          <div style={{ fontSize: 13, color: "#6B7BA4", marginBottom: 12 }}>Oder Nummer direkt eingeben:</div>
           <label style={ST.lbl}>Handynummer Partner</label>
           <div style={{ display: "flex", gap: 8 }}>
             <input style={{ ...ST.inp, flex: 1 }} type="tel" autoComplete="tel" placeholder="+43 664 987 654 3" value={partnerPhone} onChange={e => setPartnerPhone(e.target.value)} />
             {supportsContactPicker && <button style={{ ...ST.btnB, height: 54, borderRadius: 14, flexShrink: 0 }} onClick={() => selectContact(setPartnerPhone)}><BookUser size={20} /></button>}
           </div>
         </div>
-        {partnerPhone.length > 5 && (
-          <div style={{ background: "#0D2A1A", border: "1.5px solid #1A4A2A", borderRadius: 18, padding: 16 }}>
-            <div style={{...ST.lbl, display: "flex", alignItems: "center", gap: 6}}><MessageCircle size={12} /> WhatsApp Vorschau</div>
-            <div style={{ background: "#1A3A25", borderRadius: 12, padding: 14, fontSize: 13, color: "#D1FAE5", lineHeight: 1.7 }}>
-              Hallo! <strong>{profile.firstName} {profile.lastName}</strong> möchte mit dir beim <strong>{TOURNAMENT.name}</strong> spielen.<br /><br />
-              {DISCIPLINES.find(d => d.key === reg.discipline)?.icon} {DISCIPLINES.find(d => d.key === reg.discipline)?.label} · Level {reg.level} · {reg.age}<br /><br />
-              Bestätige hier:<br />
-              <span style={{ color: "#4ADE80" }}>{TOURNAMENT.appUrl}/invite/abc123</span><br /><br />
-              <span style={{ color: "#6B9A70", fontSize: 12 }}>Zahlung bis spätestens 72h vor Turnierbeginn.</span>
-            </div>
-          </div>
-        )}
       </div>
       <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-        <button style={{ ...ST.btn, opacity: partnerPhone.length < 8 ? 0.4 : 1 }} onClick={() => partnerPhone.length >= 8 && (setPayOption("self"), setScreenTracked("payment"))}>Partner einladen & weiter</button>
+        <button style={{ ...ST.btn, opacity: partnerPhone.length < 8 ? 0.4 : 1 }} onClick={() => partnerPhone.length >= 8 && (setPayOption("self"), setScreenTracked("payment"))}>Mit Nummer weiter</button>
         <button style={ST.ghost} onClick={() => { setPayOption("self"); setScreenTracked("payment"); }}>Später hinzufügen</button>
       </div>
     </div></div>
