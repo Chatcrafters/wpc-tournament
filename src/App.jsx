@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./lib/supabase";
-import { User, Users, Handshake, Search, Zap, CheckCircle, XCircle, Clock, Mail, UserPlus, Star, Target, MessageCircle, MapPin, Trophy, CreditCard, ArrowLeft, ArrowRight, X, Plus, AlertTriangle, Lightbulb, Phone, Calendar, ClipboardList, Hand } from "lucide-react";
+import { User, Users, Handshake, Search, Zap, CheckCircle, XCircle, Clock, Mail, UserPlus, Star, Target, MessageCircle, MapPin, Trophy, CreditCard, ArrowLeft, ArrowRight, X, Plus, AlertTriangle, Lightbulb, Phone, Calendar, ClipboardList, Hand, BookUser } from "lucide-react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const TOURNAMENT = { name: "Vienna Pickleball Open", date: "14.–16. Juni 2025", location: "Sportpark Liesing, Wien", deadline: "1. Juni 2025", year: 2025, appUrl: "https://5kzsnz.csb.app" };
@@ -456,6 +456,21 @@ export default function App() {
   };
 
   const needsPartner = (d) => d === "doubles" || d === "mixed";
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  const selectContact = async (setter) => {
+    try {
+      if ("contacts" in navigator && "ContactsManager" in window) {
+        const contacts = await navigator.contacts.select(["name", "tel"], { multiple: false });
+        if (contacts.length > 0 && contacts[0].tel?.length > 0) {
+          setter(contacts[0].tel[0]);
+        }
+      } else {
+        alert("Kontakte werden auf diesem Gerät nicht unterstützt");
+      }
+    } catch (err) {
+      console.log("[Contacts] Auswahl abgebrochen");
+    }
+  };
   const hasAnyPaid = registrations.some(r => r.paid);
   const playerAge = calcAgeInYear(profile.dob, TOURNAMENT.year);
   const suggested = suggestLevel(duprData?.rating);
@@ -802,7 +817,10 @@ export default function App() {
         {/* Phone input */}
         <div>
           <label style={ST.lbl}>Handynummer (optional)</label>
-          <input style={ST.inp} type="tel" placeholder="+43 664 987 654 3" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <input style={{ ...ST.inp, flex: 1 }} type="tel" placeholder="+43 664 987 654 3" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} />
+            {isMobile && <button style={{ ...ST.btnB, height: 54, borderRadius: 14, flexShrink: 0 }} onClick={() => selectContact(setInvitePhone)}><BookUser size={20} /></button>}
+          </div>
           <div style={{ fontSize: 12, color: "#6B7BA4", marginTop: 6 }}>Leer lassen um nur den Link zu öffnen</div>
         </div>
 
@@ -1003,7 +1021,10 @@ export default function App() {
         <div style={{ color: "#6B7BA4", fontSize: 14, lineHeight: 1.6 }}>Handynummer eingeben – Partner bekommt automatisch eine WhatsApp.</div>
         <div>
           <label style={ST.lbl}>Handynummer Partner</label>
-          <input style={ST.inp} type="tel" placeholder="+43 664 987 654 3" value={partnerPhone} onChange={e => setPartnerPhone(e.target.value)} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <input style={{ ...ST.inp, flex: 1 }} type="tel" placeholder="+43 664 987 654 3" value={partnerPhone} onChange={e => setPartnerPhone(e.target.value)} />
+            {isMobile && <button style={{ ...ST.btnB, height: 54, borderRadius: 14, flexShrink: 0 }} onClick={() => selectContact(setPartnerPhone)}><BookUser size={20} /></button>}
+          </div>
         </div>
         {partnerPhone.length > 5 && (
           <div style={{ background: "#0D2A1A", border: "1.5px solid #1A4A2A", borderRadius: 18, padding: 16 }}>
