@@ -766,17 +766,16 @@ export default function App() {
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{d?.label} · {r.age}</div>
                       <div style={{ fontSize: 12, marginTop: 2, color: (r.paid ? "#4ADE80" : "#F59E0B") }}>
                         {r.paid && r.paidForPartner ? "Du hast für beide bezahlt"
-                          : r.paid && r.partnerPhone && !r.paidForPartner ? "Bezahlt – Partner zahlt selbst"
+                          : r.paid && r.partnerPhone && !r.paidForPartner ? `Bezahlt · Partner (${r.partnerPhone}) zahlt noch`
                           : r.paid ? "Bezahlt"
-                          : r.lookingForPartner ? "Zahlung nach Paarung"
+                          : r.lookingForPartner ? "Auf Partnerbörse · Zahlung nach Paarung"
                           : "Zahlung ausstehend"}
                       </div>
                     </div>
                   </div>
                   <span style={ST.tag(col)}>{r.level}</span>
                 </div>
-                {r.lookingForPartner && <div style={{ background: "#0D2A1A", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#4ADE80", display: "flex", alignItems: "center", gap: 6 }}><Search size={12} /> Auf Partnerbörse aktiv</div>}
-                {r.partnerPhone && <div style={{ background: "#0D1F33", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#6B7BA4", display: "flex", alignItems: "center", gap: 6 }}><Users size={12} /> Partner: {r.partnerPhone} · <span style={{ color: r.paidForPartner ? "#4ADE80" : "#F59E0B" }}>{r.paidForPartner ? "Du hast gezahlt" : "Partner zahlt noch"}</span></div>}
+                {r.paid && r.paidForPartner && r.partnerPhone && <div style={{ background: "#0D2A1A", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#4ADE80", display: "flex", alignItems: "center", gap: 6 }}><Users size={12} /> {r.partnerPhone} · Bezahlt</div>}
               </div>
             );
           })
