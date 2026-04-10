@@ -347,6 +347,7 @@ export default function App() {
   const sendPartnerRequest = async (toPlayerId, boardEntry) => {
     console.log("[PartnerRequest] Sending from:", profileId, "to:", toPlayerId);
     const { data, error } = await supabase.from("partner_requests").insert({
+      user_id: userId,
       from_player_id: profileId,
       to_player_id: toPlayerId,
       discipline: boardEntry.discipline,
@@ -965,7 +966,9 @@ export default function App() {
               <span style={ST.tag("#8B9CC0")}>{p.age}</span>
               <DuprBadge rating={p.duprRating} verified={p.duprVerified} size="small" />
             </div>
-            {requestingId === p.id ? (
+            {p.playerId === profileId ? (
+              <div style={{ background: "rgba(245,158,11,0.1)", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "#F59E0B", textAlign: "center" }}>Das bist du 👋</div>
+            ) : requestingId === p.id ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <textarea style={{ ...ST.inp, fontSize: 14, resize: "none", height: 80 }} placeholder="Kurze Nachricht... (optional)" value={requestMsg} onChange={e => setRequestMsg(e.target.value)} />
                 <div style={{ display: "flex", gap: 8 }}>
